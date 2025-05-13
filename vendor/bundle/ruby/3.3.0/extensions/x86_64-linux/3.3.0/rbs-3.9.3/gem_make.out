@@ -1,0 +1,36 @@
+current directory: /home/ronaldo/projects/modelm/vendor/bundle/ruby/3.3.0/gems/rbs-3.9.3/ext/rbs_extension
+/home/ronaldo/.asdf/installs/ruby/3.3.3/bin/ruby extconf.rb
+checking for whether -std=gnu99 is accepted as CFLAGS... yes
+creating Makefile
+
+current directory: /home/ronaldo/projects/modelm/vendor/bundle/ruby/3.3.0/gems/rbs-3.9.3/ext/rbs_extension
+make DESTDIR\= sitearchdir\=./.gem.20250513-177681-vos42t sitelibdir\=./.gem.20250513-177681-vos42t clean
+
+current directory: /home/ronaldo/projects/modelm/vendor/bundle/ruby/3.3.0/gems/rbs-3.9.3/ext/rbs_extension
+make DESTDIR\= sitearchdir\=./.gem.20250513-177681-vos42t sitelibdir\=./.gem.20250513-177681-vos42t
+compiling ./../../src/constants.c
+compiling ./../../src/ruby_objs.c
+compiling ./../../src/util/rbs_constant_pool.c
+compiling lexer.c
+compiling lexstate.c
+compiling location.c
+compiling main.c
+main.c: In function ‘Init_rbs_extension’:
+main.c:24:3: warning: multi-line comment [-Wcomment]
+   24 |   // grep -o 'INTERN("\([^"]*\)")' ext/rbs_extension/parser.c \
+      |   ^
+main.c: At top level:
+cc1: warning: unrecognized command line option ‘-Wno-self-assign’
+cc1: warning: unrecognized command line option ‘-Wno-parentheses-equality’
+cc1: warning: unrecognized command line option ‘-Wno-constant-logical-operand’
+compiling parser.c
+compiling parserstate.c
+compiling unescape.c
+linking shared-object rbs_extension.so
+
+current directory: /home/ronaldo/projects/modelm/vendor/bundle/ruby/3.3.0/gems/rbs-3.9.3/ext/rbs_extension
+make DESTDIR\= sitearchdir\=./.gem.20250513-177681-vos42t sitelibdir\=./.gem.20250513-177681-vos42t install
+/usr/bin/install -c -m 0755 rbs_extension.so ./.gem.20250513-177681-vos42t
+
+current directory: /home/ronaldo/projects/modelm/vendor/bundle/ruby/3.3.0/gems/rbs-3.9.3/ext/rbs_extension
+make DESTDIR\= sitearchdir\=./.gem.20250513-177681-vos42t sitelibdir\=./.gem.20250513-177681-vos42t clean
