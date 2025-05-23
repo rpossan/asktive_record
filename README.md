@@ -11,20 +11,26 @@ Imagine your users (or even you, the developer!) asking questions like "*Show me
 
 *   **Natural Language to SQL**: Convert human-readable questions into SQL queries.
 *   **LLM Integration**: Currently supports OpenAI's ChatGPT, with a design that allows for future expansion to other LLMs (e.g., Gemini).
-*   **Rails Integration**: Seamlessly integrates with your Active Record models.
+*   **Flexible Querying Options**:
+    *   Use with specific models (e.g., `User.ask("query")`)
+    *   Use with service classes to query any table (e.g., `AskService.ask("query")`)
 *   **Database Schema Awareness**: Uploads your database schema to the LLM for context-aware query generation.
 *   **Developer Control**: Provides a two-step query process: first, get the LLM-generated SQL, then sanitize and execute it, giving you full control over what runs against your database.
+*   **Smart Execution**: Automatically uses the appropriate execution method (`find_by_sql` for models, `ActiveRecord::Base.connection` for service classes).
 *   **Easy Setup**: Simple CLI commands to install and configure the gem in your Rails project.
 *   **Customizable Configuration**: Set your LLM provider, API keys, and model preferences through an initializer.
 
 ## How It Works
 
-1.  **Setup**: You install the gem and run a setup command. This command can read your `db/schema.rb` (or `db/structure.sql`) and (in future versions or specific LLM integrations) make the LLM aware of your database structure.
+1.  **Setup**: You install the gem and run a setup command. This command can read your `db/schema.rb` (or `db/structure.sql`) and make the LLM aware of your database structure.
 2.  **Configuration**: You configure your LLM API key and preferences in an initializer file.
-3.  **Querying**: In your Rails model (e.g., `User`), you can call `User.ask("your natural language query")`.
+3.  **Querying**: You can query your database in two ways:
+    *   Model-specific: `User.ask("your natural language query")`
+    *   Service-based (any table): `AskService.ask("your natural language query")`
 4.  **LLM Magic**: Modelm sends your query and the relevant schema context to the configured LLM.
 5.  **SQL Generation**: The LLM returns a SQL query.
 6.  **Safety First**: The `ask` method returns a `Modelm::Query` object containing the raw SQL. You can then inspect this SQL, apply sanitization rules (e.g., ensure it's only a `SELECT` statement), and then explicitly execute it.
+7.  **Execution**: The `execute` method intelligently runs the sanitized SQL. If the query originated from a model (like `User.ask`), it uses `User.find_by_sql`. If it originated from a service class (like `AskService.ask`), it uses the general `ActiveRecord::Base.connection` to execute the query, returning an array of hashes for `SELECT` statements.
 
 ## Installation
 
@@ -105,40 +111,74 @@ This step ensures that the LLM has the necessary context about your tables and c
 
 ## Usage
 
-First, include Modelm's functionality in your Active Record models where you want to use natural language querying. You can do this in `ApplicationRecord` to make it available globally, or in specific models.
+Modelm offers two ways to query your database using natural language:
+
+### 1. Model-Specific Querying
+
+This approach ties queries to specific models, ideal when you know which table you want to query.
 
 ```ruby
-# app/models/application_record.rb
+# First, include Modelm in your ApplicationRecord or specific models
 class ApplicationRecord < ActiveRecord::Base
   primary_abstract_class
-  include Modelm # Include the main Modelm module
+  # Include Modelm here if you want all models to have the .ask method
+  # include Modelm 
 end
-```
 
-Then, in your specific model, call the `modelm` class method to activate its features for that model (this step might become implicit in future versions if `include Modelm` is sufficient):
-
-```ruby
-# app/models/user.rb
+# Then, in your specific model, activate Modelm
 class User < ApplicationRecord
-  modelm # Activates Modelm for the User model
+  include Modelm # Include the module
+  modelm # Activate model-specific setup (optional, future use)
 end
+
+# Now you can query the User model directly
+natural_query = "Find the last five users who signed up"
+modelm_query = User.ask(natural_query)
+# => Returns a Query object with SQL targeting the users table
 ```
 
-Now you can use the `.ask()` method:
+### 2. Service-Class Querying (Any Table)
+
+This approach allows querying any table or multiple tables with joins, ideal for more complex queries or when you want a central service to handle all natural language queries.
 
 ```ruby
-# Example in a Rails console, controller, or service object:
+# Create a service class that includes Modelm
+class AskService
+  include Modelm
+  # No additional code needed!
+end
 
-# 1. Ask a question in natural language
-natural_query = "I want to know the last five users who signed up for my app"
-modelm_query = User.ask(natural_query)
+# Now you can query any table through this service
+natural_query = "Which is the last user created?"
+modelm_query = AskService.ask(natural_query)
+# => Returns a Query object with SQL targeting the users table
 
-# modelm_query is now a Modelm::Query object
+natural_query = "Which is the cheapest product?"
+modelm_query = AskService.ask(natural_query)
+# => Returns a Query object with SQL targeting the products table
+
+natural_query = "Show me products with their categories"
+modelm_query = AskService.ask(natural_query)
+# => Returns a Query object with SQL that might include JOINs between products and categories
+```
+
+You can also use Modelm directly for one-off queries:
+
+```ruby
+natural_query = "Show me all active subscriptions with their users"
+modelm_query = Modelm.ask(natural_query)
+```
+
+### Working with Query Results
+
+Regardless of which approach you use, you'll get a `Modelm::Query` object that you can work with:
+
+```ruby
+# 1. Get the generated SQL
 puts "LLM Generated SQL: #{modelm_query.raw_sql}"
 # => LLM Generated SQL: SELECT * FROM users ORDER BY created_at DESC LIMIT 5
 
 # 2. (Recommended) Sanitize the query
-# By default, it checks if it's a SELECT query. You can add more rules.
 begin
   modelm_query.sanitize! # Raises Modelm::SanitizationError if it's not a SELECT query by default
   puts "Sanitized SQL: #{modelm_query.sanitized_sql}"
@@ -150,11 +190,12 @@ end
 
 # 3. Execute the query
 begin
-  users = modelm_query.execute
-  # users will be an array of User records (if using ActiveRecord's find_by_sql implicitly)
-  # or an array of hashes depending on the execution context.
-  users.each do |user|
-    puts "User ID: #{user.id}, Email: #{user.email}, Signed Up: #{user.created_at}"
+  results = modelm_query.execute
+  # Process the results
+  # - If executed via a model (e.g., User.ask), results will be an array of User objects.
+  # - If executed via a service class (e.g., AskService.ask), results will be an array of Hashes (from ActiveRecord::Result).
+  results.each do |record|
+    puts record.inspect
   end
 rescue Modelm::QueryExecutionError => e
   puts "Error executing query: #{e.message}"
@@ -162,14 +203,29 @@ rescue Modelm::QueryExecutionError => e
 end
 ```
 
+### Advanced Options
+
+When using the service-class approach, you can provide additional options:
+
+```ruby
+# Specify a target model for execution (useful if you want ActiveRecord objects back)
+# Note: This currently doesn't change the execution method but might in the future.
+modelm_query = AskService.ask("Show me all products", model: Product)
+
+# Specify a target table name for the LLM prompt
+modelm_query = AskService.ask("Show me all items on sale", table_name: "products")
+```
+
 ### The `Modelm::Query` Object
 
-The `YourModel.ask()` method returns an instance of `Modelm::Query`. This object has a few useful methods:
+The `ask()` method returns an instance of `Modelm::Query`. This object has a few useful methods:
 
 *   `raw_sql`: The raw SQL string generated by the LLM.
 *   `sanitized_sql`: The SQL string after `sanitize!` has been called. Initially, it's the same as `raw_sql`.
 *   `sanitize!(allow_only_select: true)`: Performs sanitization. By default, it ensures the query is a `SELECT` statement. Raises `Modelm::SanitizationError` on failure. Returns `self` for chaining.
-*   `execute`: Executes the `sanitized_sql` against the database using the model's underlying connection (e.g., `YourModel.find_by_sql`). Returns the query results.
+*   `execute`: Executes the `sanitized_sql` against the database. 
+    *   If the query originated from a model (e.g., `User.ask(...)`), it uses `YourModel.find_by_sql` and returns model instances.
+    *   If the query originated from a service class (e.g., `AskService.ask(...)`), it uses `ActiveRecord::Base.connection.select_all` (for SELECT) or `execute` and returns an `ActiveRecord::Result` object (array of hashes) or connection-specific results.
 *   `to_s`: Returns the `sanitized_sql` (or `raw_sql` if `sanitized_sql` hasn't been modified from raw).
 
 ## Supported LLMs
