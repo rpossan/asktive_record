@@ -82,7 +82,7 @@ RSpec.describe Modelm::LlmService do
           model: "gpt-3.5-turbo-test",
           messages: [{ role: "user", content: expected_prompt }],
           temperature: 0.2,
-          max_tokens: 150
+          max_tokens: 250
         }
       ).and_return(chat_response)
       service.generate_sql(natural_language_query, schema_string, table_name)
