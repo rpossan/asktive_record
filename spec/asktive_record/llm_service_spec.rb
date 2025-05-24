@@ -1,19 +1,19 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "modelm/llm_service"
-require "modelm/configuration"
-require "modelm/error"
+require "asktive_record/llm_service"
+require "asktive_record/configuration"
+require "asktive_record/error"
 
-RSpec.describe Modelm::LlmService do
+RSpec.describe AsktiveRecord::LlmService do
   let(:api_key) { "test_api_key" }
   let(:configuration) do
-    config = Modelm::Configuration.new
+    config = AsktiveRecord::Configuration.new
     config.llm_api_key = api_key
     config.llm_model_name = "gpt-3.5-turbo-test"
     config
   end
-  let(:service) { Modelm::LlmService.new(configuration) }
+  let(:service) { AsktiveRecord::LlmService.new(configuration) }
   let(:openai_client_double) { instance_double(OpenAI::Client) }
 
   before do
@@ -28,9 +28,9 @@ RSpec.describe Modelm::LlmService do
     it "raises ConfigurationError if API key is missing" do
       configuration.llm_api_key = nil
       expect do
-        Modelm::LlmService.new(configuration)
-      end.to raise_error(Modelm::ConfigurationError,
-                         "LLM API key is not configured. Please set it in config/initializers/modelm.rb or via environment variable.")
+        AsktiveRecord::LlmService.new(configuration)
+      end.to raise_error(AsktiveRecord::ConfigurationError,
+                         "LLM API key is not configured. Please set it in config/initializers/asktive_record.rb or via environment variable.")
     end
   end
 
@@ -99,7 +99,7 @@ RSpec.describe Modelm::LlmService do
       expect do
         service.generate_sql(natural_language_query, schema_string,
                              table_name)
-      end.to raise_error(Modelm::QueryGenerationError, /LLM generated a non-SELECT query/)
+      end.to raise_error(AsktiveRecord::QueryGenerationError, /LLM generated a non-SELECT query/)
     end
 
     it "raises QueryGenerationError if LLM returns no content" do
@@ -110,7 +110,7 @@ RSpec.describe Modelm::LlmService do
       expect do
         service.generate_sql(natural_language_query, schema_string,
                              table_name)
-      end.to raise_error(Modelm::QueryGenerationError, /LLM did not return a SQL query/)
+      end.to raise_error(AsktiveRecord::QueryGenerationError, /LLM did not return a SQL query/)
     end
 
     it "raises ApiError on OpenAI API errors" do
@@ -118,7 +118,7 @@ RSpec.describe Modelm::LlmService do
       expect do
         service.generate_sql(natural_language_query, schema_string,
                              table_name)
-      end.to raise_error(Modelm::ApiError, "OpenAI API error: API connection error")
+      end.to raise_error(AsktiveRecord::ApiError, "OpenAI API error: API connection error")
     end
 
     it "raises QueryGenerationError on other unexpected errors during generation" do
@@ -126,7 +126,7 @@ RSpec.describe Modelm::LlmService do
       expect do
         service.generate_sql(natural_language_query, schema_string,
                              table_name)
-      end.to raise_error(Modelm::QueryGenerationError, "Failed to generate SQL query: Unexpected issue")
+      end.to raise_error(AsktiveRecord::QueryGenerationError, "Failed to generate SQL query: Unexpected issue")
     end
   end
 

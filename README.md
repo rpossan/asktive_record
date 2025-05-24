@@ -1,9 +1,9 @@
-# Modelm: Natural Language Database Querying for Ruby on Rails
+# AsktiveRecord: Natural Language Database Querying for Ruby on Rails
 
-[![Gem Version](https://badge.fury.io/rb/modelm.svg)](https://badge.fury.io/rb/modelm) <!-- Placeholder: Update once published -->
-[![Build Status](https://github.com/rpossan/modelm/actions/workflows/main.yml/badge.svg)](https://github.com/rpossan/modelm/actions/workflows/main.yml) <!-- Placeholder: Update with correct repo path -->
+[![Gem Version](https://badge.fury.io/rb/asktive_record.svg)](https://badge.fury.io/rb/asktive_record) <!-- Placeholder: Update once published -->
+[![Build Status](https://github.com/rpossan/asktive_record/actions/workflows/main.yml/badge.svg)](https://github.com/rpossan/asktive_record/actions/workflows/main.yml) <!-- Placeholder: Update with correct repo path -->
 
-**Modelm** is a Ruby gem designed to bridge the gap between human language and database queries. It integrates with Large Language Models (LLMs) like OpenAI's ChatGPT to allow developers to query their Rails application's database using natural language.
+**AsktiveRecord** is a Ruby gem designed to bridge the gap between human language and database queries. It integrates with Large Language Models (LLMs) like OpenAI's ChatGPT to allow developers to query their Rails application's database using natural language.
 
 Imagine your users (or even you, the developer!) asking questions like "*Show me the last five users who signed up*" or "*Which products had the most sales last month?*" and getting back the actual data, powered by an LLM translating these questions into SQL.
 
@@ -27,9 +27,9 @@ Imagine your users (or even you, the developer!) asking questions like "*Show me
 3.  **Querying**: You can query your database in two ways:
     *   Model-specific: `User.ask("your natural language query")`
     *   Service-based (any table): `AskService.ask("your natural language query")`
-4.  **LLM Magic**: Modelm sends your query and the relevant schema context to the configured LLM.
+4.  **LLM Magic**: AsktiveRecord sends your query and the relevant schema context to the configured LLM.
 5.  **SQL Generation**: The LLM returns a SQL query.
-6.  **Safety First**: The `ask` method returns a `Modelm::Query` object containing the raw SQL. You can then inspect this SQL, apply sanitization rules (e.g., ensure it's only a `SELECT` statement), and then explicitly execute it.
+6.  **Safety First**: The `ask` method returns a `AsktiveRecord::Query` object containing the raw SQL. You can then inspect this SQL, apply sanitization rules (e.g., ensure it's only a `SELECT` statement), and then explicitly execute it.
 7.  **Execution**: The `execute` method intelligently runs the sanitized SQL. If the query originated from a model (like `User.ask`), it uses `User.find_by_sql`. If it originated from a service class (like `AskService.ask`), it uses the general `ActiveRecord::Base.connection` to execute the query, returning an array of hashes for `SELECT` statements.
 
 ## Installation
@@ -37,7 +37,7 @@ Imagine your users (or even you, the developer!) asking questions like "*Show me
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'modelm'
+gem 'asktive_record'
 ```
 
 And then execute:
@@ -49,7 +49,7 @@ $ bundle install
 Or install it yourself as:
 
 ```bash
-$ gem install modelm
+$ gem install asktive_record
 ```
 
 ## Getting Started
@@ -57,19 +57,19 @@ $ gem install modelm
 After installing the gem, you need to run the installer to generate the configuration file:
 
 ```bash
-$ bundle exec rails generate modelm:install
+$ bundle exec rails generate asktive_record:install
 # or, if you're not in a full Rails app context for the generator (less common for this gem):
-# $ bundle exec modelm:install (This might require further setup for standalone use)
+# $ bundle exec asktive_record:install (This might require further setup for standalone use)
 ```
 
-This will create an initializer file at `config/initializers/modelm.rb`.
+This will create an initializer file at `config/initializers/asktive_record.rb`.
 
-### Configure Modelm
+### Configure AsktiveRecord
 
-Open `config/initializers/modelm.rb` and configure your LLM provider and API key:
+Open `config/initializers/asktive_record.rb` and configure your LLM provider and API key:
 
 ```ruby
-Modelm.configure do |config|
+AsktiveRecord.configure do |config|
   # === LLM Provider ===
   # Specify the LLM provider to use. Default is :openai
   # Supported providers: :openai (more can be added in the future)
@@ -89,7 +89,7 @@ Modelm.configure do |config|
 
   # === Database Schema Path ===
   # Path to your Rails application's schema file (usually schema.rb or structure.sql).
-  # This is used by the `modelm:setup` command and the `.ask` method to provide context to the LLM.
+  # This is used by the `asktive_record:setup` command and the `.ask` method to provide context to the LLM.
   # Default is "db/schema.rb".
   # config.db_schema_path = "db/schema.rb"
 end
@@ -99,41 +99,41 @@ end
 
 ### Prepare Schema for LLM
 
-Run the setup command to help Modelm understand your database structure. This command attempts to read your schema file (e.g., `db/schema.rb`).
+Run the setup command to help AsktiveRecord understand your database structure. This command attempts to read your schema file (e.g., `db/schema.rb`).
 
 ```bash
-$ bundle exec rails generate modelm:setup
+$ bundle exec rails generate asktive_record:setup
 # or
-# $ bundle exec modelm:setup
+# $ bundle exec asktive_record:setup
 ```
 
 This step ensures that the LLM has the necessary context about your tables and columns to generate accurate SQL queries. The schema content is passed with each query to the LLM in the current version.
 
 ## Usage
 
-Modelm offers two ways to query your database using natural language:
+AsktiveRecord offers two ways to query your database using natural language:
 
 ### 1. Model-Specific Querying
 
 This approach ties queries to specific models, ideal when you know which table you want to query.
 
 ```ruby
-# First, include Modelm in your ApplicationRecord or specific models
+# First, include AsktiveRecord in your ApplicationRecord or specific models
 class ApplicationRecord < ActiveRecord::Base
   primary_abstract_class
-  # Include Modelm here if you want all models to have the .ask method
-  # include Modelm 
+  # Include AsktiveRecord here if you want all models to have the .ask method
+  # include AsktiveRecord
 end
 
-# Then, in your specific model, activate Modelm
+# Then, in your specific model, activate AsktiveRecord
 class User < ApplicationRecord
-  include Modelm # Include the module
-  modelm # Activate model-specific setup (optional, future use)
+  include AsktiveRecord # Include the module
+  asktive_record # Activate model-specific setup (optional, future use)
 end
 
 # Now you can query the User model directly
 natural_query = "Find the last five users who signed up"
-modelm_query = User.ask(natural_query)
+asktive_record_query = User.ask(natural_query)
 # => Returns a Query object with SQL targeting the users table
 ```
 
@@ -142,47 +142,47 @@ modelm_query = User.ask(natural_query)
 This approach allows querying any table or multiple tables with joins, ideal for more complex queries or when you want a central service to handle all natural language queries.
 
 ```ruby
-# Create a service class that includes Modelm
+# Create a service class that includes AsktiveRecord
 class AskService
-  include Modelm
+  include AsktiveRecord
   # No additional code needed!
 end
 
 # Now you can query any table through this service
 natural_query = "Which is the last user created?"
-modelm_query = AskService.ask(natural_query)
+asktive_record_query = AskService.ask(natural_query)
 # => Returns a Query object with SQL targeting the users table
 
 natural_query = "Which is the cheapest product?"
-modelm_query = AskService.ask(natural_query)
+asktive_record_query = AskService.ask(natural_query)
 # => Returns a Query object with SQL targeting the products table
 
 natural_query = "Show me products with their categories"
-modelm_query = AskService.ask(natural_query)
+asktive_record_query = AskService.ask(natural_query)
 # => Returns a Query object with SQL that might include JOINs between products and categories
 ```
 
-You can also use Modelm directly for one-off queries:
+You can also use AsktiveRecord directly for one-off queries:
 
 ```ruby
 natural_query = "Show me all active subscriptions with their users"
-modelm_query = Modelm.ask(natural_query)
+asktive_record_query = AsktiveRecord.ask(natural_query)
 ```
 
 ### Working with Query Results
 
-Regardless of which approach you use, you'll get a `Modelm::Query` object that you can work with:
+Regardless of which approach you use, you'll get a `AsktiveRecord::Query` object that you can work with:
 
 ```ruby
 # 1. Get the generated SQL
-puts "LLM Generated SQL: #{modelm_query.raw_sql}"
+puts "LLM Generated SQL: #{asktive_record_query.raw_sql}"
 # => LLM Generated SQL: SELECT * FROM users ORDER BY created_at DESC LIMIT 5
 
 # 2. (Recommended) Sanitize the query
 begin
-  modelm_query.sanitize! # Raises Modelm::SanitizationError if it's not a SELECT query by default
-  puts "Sanitized SQL: #{modelm_query.sanitized_sql}"
-rescue Modelm::SanitizationError => e
+  asktive_record_query.sanitize! # Raises AsktiveRecord::SanitizationError if it's not a SELECT query by default
+  puts "Sanitized SQL: #{asktive_record_query.sanitized_sql}"
+rescue AsktiveRecord::SanitizationError => e
   puts "Error: #{e.message}"
   # Handle error, maybe log it or don't execute the query
   return
@@ -190,14 +190,14 @@ end
 
 # 3. Execute the query
 begin
-  results = modelm_query.execute
+  results = asktive_record_query.execute
   # Process the results
   # - If executed via a model (e.g., User.ask), results will be an array of User objects.
   # - If executed via a service class (e.g., AskService.ask), results will be an array of Hashes (from ActiveRecord::Result).
   results.each do |record|
     puts record.inspect
   end
-rescue Modelm::QueryExecutionError => e
+rescue AsktiveRecord::QueryExecutionError => e
   puts "Error executing query: #{e.message}"
   # Handle database execution errors
 end
@@ -210,20 +210,20 @@ When using the service-class approach, you can provide additional options:
 ```ruby
 # Specify a target model for execution (useful if you want ActiveRecord objects back)
 # Note: This currently doesn't change the execution method but might in the future.
-modelm_query = AskService.ask("Show me all products", model: Product)
+asktive_record_query = AskService.ask("Show me all products", model: Product)
 
 # Specify a target table name for the LLM prompt
-modelm_query = AskService.ask("Show me all items on sale", table_name: "products")
+asktive_record_query = AskService.ask("Show me all items on sale", table_name: "products")
 ```
 
-### The `Modelm::Query` Object
+### The `AsktiveRecord::Query` Object
 
-The `ask()` method returns an instance of `Modelm::Query`. This object has a few useful methods:
+The `ask()` method returns an instance of `AsktiveRecord::Query`. This object has a few useful methods:
 
 *   `raw_sql`: The raw SQL string generated by the LLM.
 *   `sanitized_sql`: The SQL string after `sanitize!` has been called. Initially, it's the same as `raw_sql`.
-*   `sanitize!(allow_only_select: true)`: Performs sanitization. By default, it ensures the query is a `SELECT` statement. Raises `Modelm::SanitizationError` on failure. Returns `self` for chaining.
-*   `execute`: Executes the `sanitized_sql` against the database. 
+*   `sanitize!(allow_only_select: true)`: Performs sanitization. By default, it ensures the query is a `SELECT` statement. Raises `AsktiveRecord::SanitizationError` on failure. Returns `self` for chaining.
+*   `execute`: Executes the `sanitized_sql` against the database.
     *   If the query originated from a model (e.g., `User.ask(...)`), it uses `YourModel.find_by_sql` and returns model instances.
     *   If the query originated from a service class (e.g., `AskService.ask(...)`), it uses `ActiveRecord::Base.connection.select_all` (for SELECT) or `execute` and returns an `ActiveRecord::Result` object (array of hashes) or connection-specific results.
 *   `to_s`: Returns the `sanitized_sql` (or `raw_sql` if `sanitized_sql` hasn't been modified from raw).
@@ -237,7 +237,7 @@ The `ask()` method returns an instance of `Modelm::Query`. This object has a few
 
 Contributions are welcome! Whether it's bug reports, feature requests, documentation improvements, or code contributions, please feel free to open an issue or submit a pull request on GitHub.
 
-1.  Fork the repository ([https://github.com/rpossan/modelm/fork](https://github.com/rpossan/modelm/fork)).
+1.  Fork the repository ([https://github.com/rpossan/asktive_record/fork](https://github.com/rpossan/asktive_record/fork)).
 2.  Create your feature branch (`git checkout -b my-new-feature`).
 3.  Commit your changes (`git commit -am 'Add some feature'`).
 4.  Push to the branch (`git push origin my-new-feature`).
@@ -257,7 +257,7 @@ The gem is available as open source under the terms of the [MIT License](https:/
 
 ## Code of Conduct
 
-Everyone interacting in the Modelm project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Everyone interacting in the AsktiveRecord project's codebases, issue trackers, chat rooms and mailing lists is expected to follow the [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ---
 

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 require "spec_helper"
-require "modelm/query"
-require "modelm/error"
+require "asktive_record/query"
+require "asktive_record/error"
 
 # Mock ActiveRecord::Base and its connection for testing execution
 module ActiveRecord
@@ -46,7 +46,7 @@ class MockServiceClass
   # Does not have find_by_sql
 end
 
-RSpec.describe Modelm::Query do
+RSpec.describe AsktiveRecord::Query do
   let(:raw_sql) { "SELECT * FROM users WHERE id = 1" }
   let(:non_select_sql) { "UPDATE users SET name = \"Test\" WHERE id = 1" }
   let(:model_class) { MockModel }
@@ -74,7 +74,10 @@ RSpec.describe Modelm::Query do
 
     it "raises SanitizationError if the query is not SELECT and allow_only_select is true" do
       query = described_class.new("UPDATE users SET name = \"Test\"", model_class)
-      expect { query.sanitize!(allow_only_select: true) }.to raise_error(Modelm::SanitizationError, /Only SELECT statements are allowed/)
+      expect do
+        query.sanitize!(allow_only_select: true)
+      end.to raise_error(AsktiveRecord::SanitizationError,
+                         /Only SELECT statements are allowed/)
     end
 
     it "allows non-SELECT queries if allow_only_select is false" do
@@ -121,26 +124,29 @@ RSpec.describe Modelm::Query do
 
       context "with non-SELECT query (if sanitization allows)" do
         before do
-           non_select_query_for_service.sanitize!(allow_only_select: false)
+          non_select_query_for_service.sanitize!(allow_only_select: false)
         end
 
         it "uses ActiveRecord::Base.connection.execute" do
-           expect(ActiveRecord::Base.connection).to receive(:execute).with(non_select_query_for_service.sanitized_sql).and_call_original
-           non_select_query_for_service.execute
+          expect(ActiveRecord::Base.connection).to receive(:execute).with(non_select_query_for_service.sanitized_sql).and_call_original
+          non_select_query_for_service.execute
         end
       end
     end
 
     context "when ActiveRecord::Base is not available or not connected" do
-       before do
-         query_for_service.sanitize!
-         # Hide ActiveRecord::Base for this context
-         hide_const("ActiveRecord::Base")
-       end
+      before do
+        query_for_service.sanitize!
+        # Hide ActiveRecord::Base for this context
+        hide_const("ActiveRecord::Base")
+      end
 
-       it "raises QueryExecutionError" do
-         expect { query_for_service.execute }.to raise_error(Modelm::QueryExecutionError, /Cannot execute query. The associated class \(MockServiceClass\) does not respond to :find_by_sql, and no active ActiveRecord::Base connection was found./)
-       end
+      it "raises QueryExecutionError" do
+        expect do
+          query_for_service.execute
+        end.to raise_error(AsktiveRecord::QueryExecutionError,
+                           /Cannot execute query. The associated class \(MockServiceClass\) does not respond to :find_by_sql, and no active ActiveRecord::Base connection was found./)
+      end
     end
 
     context "when database execution fails" do
@@ -150,7 +156,9 @@ RSpec.describe Modelm::Query do
       end
 
       it "raises QueryExecutionError" do
-        expect { query_for_model.execute }.to raise_error(Modelm::QueryExecutionError, /Failed to execute SQL query: Database error/)
+        expect do
+          query_for_model.execute
+        end.to raise_error(AsktiveRecord::QueryExecutionError, /Failed to execute SQL query: Database error/)
       end
     end
   end
