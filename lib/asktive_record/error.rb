@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Modelm
+module AsktiveRecord
   class Error < StandardError; end
   class ConfigurationError < Error; end
   class ApiError < Error; end
@@ -8,4 +8,3 @@ module Modelm
   class QueryExecutionError < Error; end
   class SanitizationError < Error; end
 end
-

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Modelm
+module AsktiveRecord
   class Query
     attr_reader :raw_sql, :model_class
     attr_accessor :sanitized_sql

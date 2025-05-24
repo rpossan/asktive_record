@@ -1,5 +1,5 @@
-# Modelm Initializer
-Modelm.configure do |config|
+# AsktiveRecord Initializer
+AsktiveRecord.configure do |config|
   # === LLM Provider ===
   # Specify the LLM provider to use. Default is :openai
   # Supported providers: :openai (more can be added in the future)
@@ -19,8 +19,7 @@ Modelm.configure do |config|
 
   # === Database Schema Path ===
   # Path to your Rails application's schema file (usually schema.rb or structure.sql).
-  # This is used by the `modelm:setup` command to provide context to the LLM.
+  # This is used by the `asktive_record:setup` command to provide context to the LLM.
   # Default is "db/schema.rb".
   # config.db_schema_path = "db/schema.rb"
 end
-

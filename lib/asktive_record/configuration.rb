@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-module Modelm
+module AsktiveRecord
   class Configuration
     attr_accessor :llm_provider, :llm_api_key, :llm_model_name, :db_schema_path
 
@@ -12,4 +12,3 @@ module Modelm
     end
   end
 end
-

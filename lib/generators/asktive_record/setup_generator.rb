@@ -1,16 +1,16 @@
-require 'rails/generators/base'
+require "rails/generators/base"
 
-module Modelm
+module AsktiveRecord
   module Generators
     class SetupGenerator < Rails::Generators::Base
-      desc "Sets up Modelm by reading the database schema and preparing it for the LLM."
+      desc "Sets up AsktiveRecord by reading the database schema and preparing it for the LLM."
 
       def perform_setup
         # In a Rails application context, this would run `rails db:schema:dump`
         # and then potentially upload or process the schema for the LLM.
         # For now, we'll simulate this and inform the user.
 
-        schema_path = Modelm.configuration&.db_schema_path || "db/schema.rb"
+        schema_path = AsktiveRecord.configuration&.db_schema_path || "db/schema.rb"
         schema_content = nil
 
         if defined?(Rails)
@@ -19,7 +19,7 @@ module Modelm
             # This command will write to db/schema.rb or db/structure.sql
             # depending on Rails.application.config.active_record.schema_format
             system("bin/rails db:schema:dump")
-            
+
             # Try to read the schema file specified in the configuration
             if File.exist?(schema_path)
               schema_content = File.read(schema_path)
@@ -30,12 +30,11 @@ module Modelm
               if File.exist?(structure_sql_path)
                 schema_content = File.read(structure_sql_path)
                 puts "Successfully read schema from #{structure_sql_path}."
-              else 
+              else
                 puts "Could not find schema file at #{schema_path} or #{structure_sql_path} after dump."
               end
             end
-
-          rescue => e
+          rescue StandardError => e
             puts "Failed to execute 'rails db:schema:dump' or read schema: #{e.message}"
             puts "Please ensure you are in a Rails application directory and the database is configured."
             return
@@ -58,15 +57,14 @@ module Modelm
           puts "Database schema obtained. Length: #{schema_content.length} characters."
           puts "Next step would be to process and provide this schema to the configured LLM."
           # For example:
-          # LlmService.new(Modelm.configuration).upload_schema(schema_content)
+          # LlmService.new(AsktiveRecord.configuration).upload_schema(schema_content)
         else
           puts "Could not obtain database schema. LLM will not have schema context."
         end
 
-        puts "Modelm setup process complete."
-        puts "Ensure your LLM API key and other configurations are set in config/initializers/modelm.rb"
+        puts "AsktiveRecord setup process complete."
+        puts "Ensure your LLM API key and other configurations are set in config/initializers/asktive_record.rb"
       end
     end
   end
 end
-

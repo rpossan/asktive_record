@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "modelm"
+require "asktive_record"
 
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure

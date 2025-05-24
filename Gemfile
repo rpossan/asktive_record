@@ -2,7 +2,7 @@
 
 source "https://rubygems.org"
 
-# Specify your gem's dependencies in modelm.gemspec
+# Specify your gem's dependencies in asktive_record.gemspec
 gemspec
 
 gem "byebug", "~> 11.0", require: false

@@ -1,11 +1,11 @@
-require "modelm/version"
-require "modelm/error"
-require "modelm/configuration"
-require "modelm/model"
-require "modelm/service"
-require "modelm/query"
+require "asktive_record/version"
+require "asktive_record/error"
+require "asktive_record/configuration"
+require "asktive_record/model"
+require "asktive_record/service"
+require "asktive_record/query"
 
-module Modelm
+module AsktiveRecord
   class << self
     attr_accessor :configuration
   end
@@ -15,9 +15,9 @@ module Modelm
     yield(configuration)
   end
 
-  # Main entry point for ApplicationRecord to include Modelm behavior
+  # Main entry point for ApplicationRecord to include AsktiveRecord behavior
   def self.included(base)
-    # If the base class is a service class (inherits from Modelm directly),
+    # If the base class is a service class (inherits from AsktiveRecord directly),
     # extend it with Service module methods
     if base.superclass == Object || base.superclass.name == "Object"
       base.extend(Service::ClassMethods)
@@ -26,8 +26,8 @@ module Modelm
       base.extend(Model::ClassMethods)
     end
   end
-  
-  # Class method to allow direct querying from Modelm module
+
+  # Class method to allow direct querying from AsktiveRecord module
   def self.ask(natural_language_query, options = {})
     # Delegate to the Service module's implementation
     Service::ClassMethods.instance_method(:ask).bind(self).call(natural_language_query, options)

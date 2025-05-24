@@ -2,9 +2,9 @@
 
 require "spec_helper"
 
-RSpec.describe Modelm do
+RSpec.describe AsktiveRecord do
   it "has a version number" do
-    expect(Modelm::VERSION).not_to be nil
+    expect(AsktiveRecord::VERSION).not_to be nil
   end
 
   # Removed the failing placeholder test
@@ -12,4 +12,3 @@ RSpec.describe Modelm do
   #   expect(false).to eq(true)
   # end
 end
-
