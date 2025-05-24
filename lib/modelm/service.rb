@@ -1,18 +1,10 @@
 # frozen_string_literal: true
-require "modelm/llm_service" # Ensure LlmService is available
+require "modelm/llm_service"
 
 module Modelm
-  module Model
+  module Service
     module ClassMethods
-      def modelm
-        # This method is called in the Rails model to include Modelm's functionality.
-        # It can be used for any specific setup related to the model if needed in the future.
-        unless Modelm.configuration
-          raise ConfigurationError, "Modelm is not configured. Please run the installer and ensure config/initializers/modelm.rb is set up."
-        end
-      end
-
-      def ask(natural_language_query)
+      def ask(natural_language_query, options = {})
         unless Modelm.configuration&.llm_api_key
           raise ConfigurationError, "LLM API key is not configured for Modelm."
         end
@@ -25,7 +17,6 @@ module Modelm
             schema_content = File.read(schema_path)
           else
             # Attempt to use rails db:schema:dump if schema file is not found, as a fallback
-            # This is more relevant for the `modelm:setup` task but can be a safety net here.
             puts "Schema file not found at #{schema_path}. Attempting to generate it. Run 'bundle exec modelm:setup' for robust schema handling."
             if defined?(Rails)
               system("bin/rails db:schema:dump")
@@ -53,16 +44,27 @@ module Modelm
 
         llm_service = Modelm::LlmService.new(Modelm.configuration)
         
-        # Determine table name. In Rails, self.table_name would work directly.
-        # For broader compatibility or if used outside AR, this might need adjustment.
-        current_table_name = self.respond_to?(:table_name) ? self.table_name : self.name.downcase.pluralize
+        # For service-based queries, we don't specify a target table in the prompt
+        # The LLM will determine the appropriate tables based on the query and schema
+        target_table = options[:table_name] || "any"
+        
+        # Generate SQL using the enhanced LLM service that supports multi-table queries
+        raw_sql = llm_service.generate_sql_for_service(natural_language_query, schema_content, target_table)
 
-        # Use the original model-specific method for model-based queries
-        raw_sql = llm_service.generate_sql(natural_language_query, schema_content, current_table_name)
-
-        Modelm::Query.new(raw_sql, self)
+        # For service-based queries, we need to determine the appropriate model for execution
+        # If a specific model is provided in options, use that
+        target_model = options[:model]
+        
+        # If no model is specified but we're in a Rails environment, use ApplicationRecord
+        if target_model.nil? && defined?(Rails) && defined?(ApplicationRecord)
+          target_model = ApplicationRecord
+        end
+        
+        # If still no model, use the service class itself (which may not have find_by_sql)
+        target_model ||= self
+        
+        Modelm::Query.new(raw_sql, target_model)
       end
     end
   end
 end
-

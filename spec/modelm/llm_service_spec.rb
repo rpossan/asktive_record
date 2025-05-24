@@ -27,7 +27,10 @@ RSpec.describe Modelm::LlmService do
 
     it "raises ConfigurationError if API key is missing" do
       configuration.llm_api_key = nil
-      expect { Modelm::LlmService.new(configuration) }.to raise_error(Modelm::ConfigurationError, "LLM API key is not configured. Please set it in config/initializers/modelm.rb or via environment variable.")
+      expect do
+        Modelm::LlmService.new(configuration)
+      end.to raise_error(Modelm::ConfigurationError,
+                         "LLM API key is not configured. Please set it in config/initializers/modelm.rb or via environment variable.")
     end
   end
 
@@ -82,7 +85,7 @@ RSpec.describe Modelm::LlmService do
           model: "gpt-3.5-turbo-test",
           messages: [{ role: "user", content: expected_prompt }],
           temperature: 0.2,
-          max_tokens: 150
+          max_tokens: 250
         }
       ).and_return(chat_response)
       service.generate_sql(natural_language_query, schema_string, table_name)
@@ -90,28 +93,40 @@ RSpec.describe Modelm::LlmService do
 
     it "raises QueryGenerationError if LLM returns a non-SELECT query" do
       non_select_response = {
-        "choices" => [{"message" => {"content" => "DROP TABLE users;"}}]
+        "choices" => [{ "message" => { "content" => "DROP TABLE users;" } }]
       }
       allow(openai_client_double).to receive(:chat).and_return(non_select_response)
-      expect { service.generate_sql(natural_language_query, schema_string, table_name) }.to raise_error(Modelm::QueryGenerationError, /LLM generated a non-SELECT query/)
+      expect do
+        service.generate_sql(natural_language_query, schema_string,
+                             table_name)
+      end.to raise_error(Modelm::QueryGenerationError, /LLM generated a non-SELECT query/)
     end
 
     it "raises QueryGenerationError if LLM returns no content" do
       empty_response = {
-        "choices" => [{"message" => {"content" => ""}}]
+        "choices" => [{ "message" => { "content" => "" } }]
       }
       allow(openai_client_double).to receive(:chat).and_return(empty_response)
-      expect { service.generate_sql(natural_language_query, schema_string, table_name) }.to raise_error(Modelm::QueryGenerationError, /LLM did not return a SQL query/)
+      expect do
+        service.generate_sql(natural_language_query, schema_string,
+                             table_name)
+      end.to raise_error(Modelm::QueryGenerationError, /LLM did not return a SQL query/)
     end
 
     it "raises ApiError on OpenAI API errors" do
       allow(openai_client_double).to receive(:chat).and_raise(OpenAI::Error.new("API connection error"))
-      expect { service.generate_sql(natural_language_query, schema_string, table_name) }.to raise_error(Modelm::ApiError, "OpenAI API error: API connection error")
+      expect do
+        service.generate_sql(natural_language_query, schema_string,
+                             table_name)
+      end.to raise_error(Modelm::ApiError, "OpenAI API error: API connection error")
     end
 
     it "raises QueryGenerationError on other unexpected errors during generation" do
       allow(openai_client_double).to receive(:chat).and_raise(StandardError.new("Unexpected issue"))
-      expect { service.generate_sql(natural_language_query, schema_string, table_name) }.to raise_error(Modelm::QueryGenerationError, "Failed to generate SQL query: Unexpected issue")
+      expect do
+        service.generate_sql(natural_language_query, schema_string,
+                             table_name)
+      end.to raise_error(Modelm::QueryGenerationError, "Failed to generate SQL query: Unexpected issue")
     end
   end
 
@@ -124,4 +139,3 @@ RSpec.describe Modelm::LlmService do
     end
   end
 end
-
