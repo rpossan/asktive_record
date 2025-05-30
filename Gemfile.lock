@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    modelm (0.1.0)
+    asktive_record (0.1.0)
       railties (>= 6.0)
       ruby-openai (~> 8.1)
       zeitwerk (>= 2.0)
@@ -177,9 +177,9 @@ PLATFORMS
   x86_64-linux
 
 DEPENDENCIES
+  asktive_record!
   bundler (>= 2.0)
   byebug (~> 11.0)
-  modelm!
   rake (~> 13.0)
   rspec (~> 3.0)
   rubocop (~> 1.21)
