@@ -43,7 +43,7 @@ GEM
     benchmark (0.4.0)
     bigdecimal (3.1.9)
     builder (3.3.0)
-    byebug (11.1.3)
+    coderay (1.1.3)
     concurrent-ruby (1.3.5)
     connection_pool (2.5.3)
     crass (1.0.6)
@@ -75,10 +75,23 @@ GEM
     loofah (2.24.1)
       crass (~> 1.0.2)
       nokogiri (>= 1.12.0)
+    method_source (1.1.0)
+    mini_portile2 (2.8.9)
     minitest (5.25.5)
     multipart-post (2.4.1)
     net-http (0.6.0)
       uri
+    nokogiri (1.18.8)
+      mini_portile2 (~> 2.8.2)
+      racc (~> 1.4)
+    nokogiri (1.18.8-aarch64-linux-gnu)
+      racc (~> 1.4)
+    nokogiri (1.18.8-arm-linux-gnu)
+      racc (~> 1.4)
+    nokogiri (1.18.8-arm64-darwin)
+      racc (~> 1.4)
+    nokogiri (1.18.8-x86_64-darwin)
+      racc (~> 1.4)
     nokogiri (1.18.8-x86_64-linux-gnu)
       racc (~> 1.4)
     parallel (1.27.0)
@@ -89,6 +102,9 @@ GEM
       prettyprint
     prettyprint (0.2.0)
     prism (1.4.0)
+    pry (0.15.2)
+      coderay (~> 1.1)
+      method_source (~> 1.0)
     psych (5.2.6)
       date
       stringio
@@ -179,7 +195,7 @@ PLATFORMS
 DEPENDENCIES
   asktive_record!
   bundler (>= 2.0)
-  byebug (~> 11.0)
+  pry
   rake (~> 13.0)
   rspec (~> 3.0)
   rubocop (~> 1.21)

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "spec_helper"
+require "./spec/spec_helper"
 require "asktive_record/llm_service"
 require "asktive_record/configuration"
 require "asktive_record/error"

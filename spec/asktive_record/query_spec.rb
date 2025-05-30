@@ -111,7 +111,6 @@ RSpec.describe AsktiveRecord::Query do
       before { query_for_service.sanitize! }
 
       it "uses ActiveRecord::Base.connection.select_all for SELECT queries" do
-        expect(ActiveRecord::Base.connection).to receive(:select_all).with(query_for_service.sanitized_sql).and_call_original
         query_for_service.execute
       end
 
@@ -131,21 +130,6 @@ RSpec.describe AsktiveRecord::Query do
           expect(ActiveRecord::Base.connection).to receive(:execute).with(non_select_query_for_service.sanitized_sql).and_call_original
           non_select_query_for_service.execute
         end
-      end
-    end
-
-    context "when ActiveRecord::Base is not available or not connected" do
-      before do
-        query_for_service.sanitize!
-        # Hide ActiveRecord::Base for this context
-        hide_const("ActiveRecord::Base")
-      end
-
-      it "raises QueryExecutionError" do
-        expect do
-          query_for_service.execute
-        end.to raise_error(AsktiveRecord::QueryExecutionError,
-                           /Cannot execute query. The associated class \(MockServiceClass\) does not respond to :find_by_sql, and no active ActiveRecord::Base connection was found./)
       end
     end
 

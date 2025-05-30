@@ -31,26 +31,32 @@ module AsktiveRecord
       end
 
       begin
-        if model_class.respond_to?(:find_by_sql) && model_class.table_name.present?
+        if model_class.respond_to?(:find_by_sql) && !model_class.table_name.nil?
           # Execute using the model-specific method (for ActiveRecord models)
           result = model_class.find_by_sql(@sanitized_sql)
-          result = result[0].count if result.respond_to? :count
+          result = result[0].count if result[0].respond_to?(:count)
           return result
         elsif defined?(ActiveRecord::Base)
           # Execute using the general ActiveRecord connection (for service classes)
           # Use select_all for SELECT queries, which returns an array of hashes
           # For other query types (if sanitization allows), execute might be needed
           result = if @sanitized_sql.strip.downcase.start_with?("select")
-                     ActiveRecord::Base.connection.exec_query(@sanitized_sql)
+                     if ActiveRecord::Base.connection.respond_to?(:exec_query)
+                       ActiveRecord::Base.connection.exec_query(@sanitized_sql)
+                     end
+                     ActiveRecord::Base.connection.select_all(@sanitized_sql)
                    else
-                     # If sanitization allows non-SELECT, use execute
+                     # If sanitization allows non-SELECT, use select_all
                      # Note: This path requires careful sanitization to avoid security risks
-                     ActiveRecord::Base.connection.exec_query(@sanitized_sql)
+                     if ActiveRecord::Base.connection.respond_to?(:exec_query)
+                       ActiveRecord::Base.connection.exec_query(@sanitized_sql)
+                     end
+                     ActiveRecord::Base.connection.execute(@sanitized_sql)
                    end
         end
 
         # Return the result of the query execution
-        result = result[0]["count"] if result && result[0].key?("count")
+        result = result[0]["count"] if result && result.is_a?(Array) && result[0].key?("count")
         result
       rescue StandardError => e
         # Catch potential ActiveRecord::StatementInvalid or other DB errors

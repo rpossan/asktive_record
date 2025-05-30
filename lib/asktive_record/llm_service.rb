@@ -14,6 +14,15 @@ module AsktiveRecord
             "LLM API key is not configured. Please set it in config/initializers/asktive_record.rb or via environment variable."
     end
 
+    # Placeholder for schema upload/management with the LLM if needed for more advanced scenarios
+    # For instance, if using OpenAI Assistants API or fine-tuning.
+    # For now, the schema is passed with each query.
+    def upload_schema(schema_string)
+      # This could be used to upload schema to a vector store or a fine-tuning dataset in the future.
+      puts "Schema upload functionality is a placeholder for now."
+      true
+    end
+
     # Original method for model-specific queries
     def generate_sql(natural_language_query, schema_string, table_name)
       client = OpenAI::Client.new(access_token: configuration.llm_api_key)
@@ -101,15 +110,6 @@ module AsktiveRecord
       raise ApiError, "OpenAI API error: #{e.message}"
     rescue StandardError => e
       raise QueryGenerationError, "Failed to generate SQL query: #{e.message}"
-    end
-
-    # Placeholder for schema upload/management with the LLM if needed for more advanced scenarios
-    # For instance, if using OpenAI Assistants API or fine-tuning.
-    # For now, the schema is passed with each query.
-    def upload_schema(schema_string)
-      # This could be used to upload schema to a vector store or a fine-tuning dataset in the future.
-      puts "Schema upload functionality is a placeholder for now."
-      true
     end
   end
 end

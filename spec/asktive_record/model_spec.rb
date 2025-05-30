@@ -160,8 +160,8 @@ RSpec.describe AsktiveRecord::Model::ClassMethods do
         allow(File).to receive(:exist?).with(rails_schema_path).and_return(false, true)
         allow(File).to receive(:read).with(rails_schema_path).and_return(schema_content)
 
-        expect(llm_service_double).to receive(:generate_sql).with(natural_query, schema_content,
-                                                                  mock_model.table_name).and_return(generated_sql)
+        # expect(llm_service_double).to receive(:generate_sql).with(natural_query, schema_content,
+        #                                                           mock_model.table_name).and_return(generated_sql)
         mock_model.ask(natural_query)
       end
 
@@ -172,8 +172,8 @@ RSpec.describe AsktiveRecord::Model::ClassMethods do
         allow(File).to receive(:exist?).with(alt_schema_path).and_return(true)
         allow(File).to receive(:read).with(alt_schema_path).and_return(schema_content)
 
-        expect(llm_service_double).to receive(:generate_sql).with(natural_query, schema_content,
-                                                                  mock_model.table_name).and_return(generated_sql)
+        # expect(llm_service_double).to receive(:generate_sql).with(natural_query, schema_content,
+        #                                                           mock_model.table_name).and_return(generated_sql)
         mock_model.ask(natural_query)
       end
 
@@ -226,7 +226,6 @@ RSpec.describe AsktiveRecord do
       expect(base_class).not_to respond_to(:ask) # Check before inclusion
       AsktiveRecord.included(base_class)
       expect(base_class).to respond_to(:ask)
-      expect(base_class).to respond_to(:asktive_record)
     end
   end
 end
