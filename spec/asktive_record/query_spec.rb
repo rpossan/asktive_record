@@ -51,9 +51,9 @@ RSpec.describe AsktiveRecord::Query do
   let(:non_select_sql) { "UPDATE users SET name = \"Test\" WHERE id = 1" }
   let(:model_class) { MockModel }
   let(:service_class) { MockServiceClass }
-  let(:query_for_model) { described_class.new(raw_sql, model_class) }
-  let(:query_for_service) { described_class.new(raw_sql, service_class) }
-  let(:non_select_query_for_service) { described_class.new(non_select_sql, service_class) }
+  let(:query_for_model) { described_class.new(nil, raw_sql, model_class) }
+  let(:query_for_service) { described_class.new(nil, raw_sql, service_class) }
+  let(:non_select_query_for_service) { described_class.new(nil, non_select_sql, service_class) }
 
   describe "#initialize" do
     it "stores the raw SQL and model class" do
@@ -66,6 +66,68 @@ RSpec.describe AsktiveRecord::Query do
     end
   end
 
+  describe "#answer" do
+    let(:llm_service_double) { double("AsktiveRecord::LlmService") }
+    let(:natural_question) { "What is the user's name?" }
+    let(:query_with_question) { described_class.new(natural_question, raw_sql, model_class) }
+
+    before do
+      # Stub LlmService and AsktiveRecord.configuration
+      stub_const("AsktiveRecord::LlmService", Class.new)
+      allow(AsktiveRecord::LlmService).to receive(:new).and_return(llm_service_double)
+      allow(AsktiveRecord).to receive(:configuration).and_return(double("Config"))
+      allow(llm_service_double).to receive(:answer).and_return("LLM Answer")
+      query_with_question.sanitize!
+    end
+
+    it "raises QueryExecutionError if sanitized_sql is nil when calling execute" do
+      query = described_class.new(nil, raw_sql, model_class)
+      query.sanitized_sql = nil
+      expect do
+        query.execute
+      end.to raise_error(AsktiveRecord::QueryExecutionError,
+                         /Cannot execute raw SQL. Call sanitize! first or work with sanitized_sql./)
+    end
+
+    it "calls execute and passes the result to LlmService#answer" do
+      expect(query_with_question).to receive(:execute).and_call_original
+      expect(llm_service_double).to receive(:answer).with(
+        natural_question,
+        query_with_question.sanitized_sql,
+        kind_of(String) # response.inspect
+      ).and_return("LLM Answer")
+      result = query_with_question.answer
+      expect(result).to eq("LLM Answer")
+    end
+
+    it "calls LlmService#answer with the inspected response" do
+      allow(query_with_question).to receive(:execute).and_return([{ "id" => 1, "name" => "Test Result" }])
+      expect(llm_service_double).to receive(:answer).with(
+        natural_question,
+        query_with_question.sanitized_sql,
+        "[{\"id\"=>1, \"name\"=>\"Test Result\"}]"
+      ).and_return("LLM Answer")
+      query_with_question.answer
+    end
+
+    it "works if response does not respond to #inspect" do
+      allow(query_with_question).to receive(:execute).and_return(123)
+      expect(llm_service_double).to receive(:answer).with(
+        natural_question,
+        query_with_question.sanitized_sql,
+        "123"
+      ).and_return("LLM Answer")
+      query_with_question.answer
+    end
+
+    it "raises QueryExecutionError if execute raises" do
+      allow(query_with_question).to receive(:execute).and_raise(AsktiveRecord::QueryExecutionError, "fail")
+      expect do
+        query_with_question.answer
+      end.to raise_error(AsktiveRecord::QueryExecutionError, /fail/)
+    end
+  end
+
   describe "#sanitize!" do
     it "does nothing if the query is a SELECT statement and allow_only_select is true" do
       expect { query_for_model.sanitize!(allow_only_select: true) }.not_to raise_error
@@ -73,7 +135,7 @@ RSpec.describe AsktiveRecord::Query do
     end
 
     it "raises SanitizationError if the query is not SELECT and allow_only_select is true" do
-      query = described_class.new("UPDATE users SET name = \"Test\"", model_class)
+      query = described_class.new(nil, "UPDATE users SET name = \"Test\"", model_class)
       expect do
         query.sanitize!(allow_only_select: true)
       end.to raise_error(AsktiveRecord::SanitizationError,
@@ -81,7 +143,7 @@ RSpec.describe AsktiveRecord::Query do
     end
 
     it "allows non-SELECT queries if allow_only_select is false" do
-      query = described_class.new("UPDATE users SET name = \"Test\"", model_class)
+      query = described_class.new(nil, "UPDATE users SET name = \"Test\"", model_class)
       expect { query.sanitize!(allow_only_select: false) }.not_to raise_error
       expect(query.sanitized_sql).to eq("UPDATE users SET name = \"Test\"")
     end
@@ -154,7 +216,7 @@ RSpec.describe AsktiveRecord::Query do
     end
 
     it "returns the raw_sql if sanitized_sql is nil (before sanitization)" do
-      query = described_class.new(raw_sql, model_class)
+      query = described_class.new(nil, raw_sql, model_class)
       query.sanitized_sql = nil # Simulate state before sanitize! is called or if it resets
       expect(query.to_s).to eq(raw_sql)
     end

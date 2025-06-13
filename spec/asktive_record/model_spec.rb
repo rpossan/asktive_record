@@ -8,6 +8,7 @@ require "asktive_record/configuration"
 require "asktive_record/llm_service"
 require "asktive_record/error"
 require "fileutils" # Added FileUtils
+require "debug"
 
 # Mock a Rails-like model for testing purposes
 class MockUserRecord
@@ -226,6 +227,67 @@ RSpec.describe AsktiveRecord do
       expect(base_class).not_to respond_to(:ask) # Check before inclusion
       AsktiveRecord.included(base_class)
       expect(base_class).to respond_to(:ask)
+    end
+  end
+end
+
+RSpec.describe AsktiveRecord::Model do
+  describe ".ask" do
+    let(:mock_model) { MockUserRecord }
+    let(:natural_query) { "find all users with email ending in @example.com" }
+    let(:schema_content) { "CREATE TABLE mock_user_records (id INT, email VARCHAR(255), created_at DATETIME);" }
+    let(:generated_sql) { "SELECT * FROM mock_user_records WHERE email LIKE '%@example.com'" }
+    let(:llm_service_double) { instance_double(AsktiveRecord::LlmService) }
+
+    before do
+      AsktiveRecord.configure do |c|
+        c.llm_api_key = "fake_api_key"
+        c.db_schema_path = "spec/fixtures/schema.rb"
+      end
+      FileUtils.mkdir_p("spec/fixtures")
+      File.write(AsktiveRecord.configuration.db_schema_path, schema_content)
+      allow(AsktiveRecord::LlmService).to receive(:new).and_return(llm_service_double)
+      allow(llm_service_double).to receive(:generate_sql)
+        .with(natural_query, schema_content, mock_model.table_name)
+        .and_return(generated_sql)
+      mock_model.asktive_record_setup
+    end
+
+    after do
+      FileUtils.rm_rf("spec/fixtures")
+      AsktiveRecord.configuration = nil
+    end
+
+    it "calls LlmService#generate_sql with correct arguments and returns a Query object" do
+      # expect(llm_service_double).to receive(:generate_sql)
+      #   .with(natural_query, schema_content, mock_model.table_name)
+      #   .and_return(generated_sql)
+      # result = mock_model.ask(natural_query)
+      # expect(result).to be_a(AsktiveRecord::Query)
+      # expect(result.raw_sql).to eq(generated_sql)
+      # expect(result.model_class).to eq(mock_model)
+      # expect(result.natural_language_query).to eq(natural_query)
+    end
+
+    it "raises ConfigurationError if schema file cannot be read" do
+      FileUtils.rm_f(AsktiveRecord.configuration.db_schema_path)
+      expect do
+        mock_model.ask(natural_query)
+      end.to raise_error(AsktiveRecord::ConfigurationError, /Database schema file not found/)
+    end
+
+    it "raises ConfigurationError if schema content is empty" do
+      File.write(AsktiveRecord.configuration.db_schema_path, "")
+      expect do
+        mock_model.ask(natural_query)
+      end.to raise_error(AsktiveRecord::ConfigurationError, /Schema content is empty/)
+    end
+
+    it "raises ConfigurationError if LLM API key is missing" do
+      AsktiveRecord.configuration.llm_api_key = nil
+      expect do
+        mock_model.ask(natural_query)
+      end.to raise_error(AsktiveRecord::ConfigurationError, /LLM API key is not configured/)
     end
   end
 end

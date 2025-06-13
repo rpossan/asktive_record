@@ -1,4 +1,5 @@
 require "rails/generators/base"
+require "debug"
 
 module AsktiveRecord
   module Generators
