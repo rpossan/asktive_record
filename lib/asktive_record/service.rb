@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
 require "asktive_record/llm_service"
+require "debug"
 
 module AsktiveRecord
   module Service
     module ClassMethods
       def ask(natural_language_query, options = {})
+        # binding.break
         unless AsktiveRecord.configuration&.llm_api_key
           raise ConfigurationError,
                 "LLM API key is not configured for AsktiveRecord."
@@ -68,7 +70,7 @@ module AsktiveRecord
         # If still no model, use the service class itself (which may not have find_by_sql)
         target_model ||= self
 
-        AsktiveRecord::Query.new(raw_sql, target_model)
+        AsktiveRecord::Query.new(natural_language_query, raw_sql, target_model)
       end
     end
   end

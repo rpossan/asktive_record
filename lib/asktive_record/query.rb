@@ -1,13 +1,15 @@
 # frozen_string_literal: true
 
+require "debug"
 module AsktiveRecord
   class Query
-    attr_reader :raw_sql, :model_class
+    attr_reader :raw_sql, :model_class, :natural_question
     attr_accessor :sanitized_sql
 
-    def initialize(raw_sql, model_class)
+    def initialize(natural_question, raw_sql, model_class)
       @raw_sql = raw_sql
       @model_class = model_class
+      @natural_question = natural_question
       @sanitized_sql = raw_sql # Initially, sanitized SQL is the same as raw SQL
     end
 
@@ -21,6 +23,13 @@ module AsktiveRecord
 
       # Add more sanitization rules here as needed
       self # Return self for chaining
+    end
+
+    def answer
+      response = execute
+      llm = AsktiveRecord::LlmService.new(AsktiveRecord.configuration)
+      response = response.inspect if response.respond_to?(:inspect)
+      llm.answer(@natural_question, @sanitized_sql, response)
     end
 
     def execute
@@ -56,6 +65,7 @@ module AsktiveRecord
         end
 
         # Return the result of the query execution
+
         result = result[0]["count"] if result && result.is_a?(Array) && result[0].key?("count")
         result
       rescue StandardError => e

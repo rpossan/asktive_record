@@ -23,6 +23,13 @@ module AsktiveRecord
       true
     end
 
+    def answer(question, query, response)
+      puts "Answering question: #{question}"
+      puts "Generated SQL query: #{query}"
+      puts "Response from database: #{response.inspect}"
+      answer_as_human(question, query, response)
+    end
+
     # Original method for model-specific queries
     def generate_sql(natural_language_query, schema_string, table_name)
       client = OpenAI::Client.new(access_token: configuration.llm_api_key)
@@ -83,6 +90,37 @@ module AsktiveRecord
     end
 
     private
+
+    def answer_as_human(question, query, response)
+      prompt = <<~PROMPT
+        Keep in mind the language of the question is in "#{question}".
+        If thre responses seems like an ActiveRerecord::Result because probably it was running as inspec
+        to be passed here, please convert it to a human-readable format. For example, get the @rows in the string
+        and convert it to a human-readable format.
+        Based on the provided schema, I ask about the following question:
+        "#{question}" and you give me the following SQL generated:
+        #{query}. So I executed the query and got the following result in my database:
+        #{response}.
+        Now I need you to answer the question based on what I asked you and the result I got.
+        Please provide a concise answer based on the result as a human would, without any SQL or technical jargon.
+        E.g. if the result is a list of users, you might say "There are 5 users in the database." or "The first user is John Doe." or "The average age of users is 30 years." depending on the context of the question.
+        Answer in the same language as the question was asked in "#{question}"
+      PROMPT
+      client = OpenAI::Client.new(access_token: configuration.llm_api_key)
+      response = client.chat(
+        parameters: {
+          model: configuration.llm_model_name || "gpt-3.5-turbo",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.2, # Lower temperature for more deterministic output
+          max_tokens: 250 # Increased max tokens for more complex queries
+        }
+      )
+      response.dig("choices", 0, "message", "content")&.strip
+    rescue OpenAI::Error => e
+      raise ApiError, "OpenAI API error: #{e.message}"
+    rescue StandardError => e
+      raise QueryGenerationError, "Failed to generate SQL query: #{e.message}"
+    end
 
     def generate_and_validate_sql(client, prompt)
       response = client.chat(
