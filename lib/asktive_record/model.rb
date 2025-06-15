@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "asktive_record/llm_service" # Ensure LlmService is available
+require "asktive_record/llm_service"
 
 module AsktiveRecord
   module Model
@@ -68,7 +68,7 @@ module AsktiveRecord
         # Use the original model-specific method for model-based queries
         raw_sql = llm_service.generate_sql(natural_language_query, schema_content, current_table_name)
 
-        AsktiveRecord::Query.new(raw_sql, self)
+        AsktiveRecord::Query.new(natural_language_query, raw_sql, self)
       end
     end
   end

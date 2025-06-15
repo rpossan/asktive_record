@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "asktive_record/version"
 require "asktive_record/error"
 require "asktive_record/configuration"
