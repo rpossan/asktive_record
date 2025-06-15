@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require "debug"
 module AsktiveRecord
   class Query
     attr_reader :raw_sql, :model_class, :natural_question

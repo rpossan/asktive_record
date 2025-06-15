@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "asktive_record/llm_service"
-require "debug"
 
 module AsktiveRecord
   module Service
