@@ -17,7 +17,7 @@ module AsktiveRecord
     # Placeholder for schema upload/management with the LLM if needed for more advanced scenarios
     # For instance, if using OpenAI Assistants API or fine-tuning.
     # For now, the schema is passed with each query.
-    def upload_schema(schema_string)
+    def upload_schema(_schema_string)
       # This could be used to upload schema to a vector store or a fine-tuning dataset in the future.
       puts "Schema upload functionality is a placeholder for now."
       true
@@ -59,7 +59,7 @@ module AsktiveRecord
     end
 
     # New method for service-class-based queries that can target any table
-    def generate_sql_for_service(natural_language_query, schema_string, target_table = "any")
+    def generate_sql_for_service(natural_language_query, schema_string, _target_table = "any")
       client = OpenAI::Client.new(access_token: configuration.llm_api_key)
 
       prompt = <<~PROMPT

@@ -1,6 +1,5 @@
-require "rails/generators"
-require "generator_spec"
-require "generators/asktive_record/setup_generator"
+# frozen_string_literal: true
+
 require "rails/generators"
 require "generator_spec"
 require "generators/asktive_record/setup_generator"

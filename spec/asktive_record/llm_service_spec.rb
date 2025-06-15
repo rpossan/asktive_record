@@ -234,7 +234,7 @@ RSpec.describe AsktiveRecord::LlmService do
     it "is a placeholder and returns true" do
       # As this is a placeholder, we just check it runs without error and returns true.
       # We can also check the output if it's important for user feedback.
-      expect(STDOUT).to receive(:puts).with("Schema upload functionality is a placeholder for now.")
+      expect($stdout).to receive(:puts).with("Schema upload functionality is a placeholder for now.")
       expect(service.upload_schema("schema_string")).to be true
     end
   end
@@ -254,9 +254,9 @@ RSpec.describe AsktiveRecord::LlmService do
     end
 
     it "prints debug information to stdout" do
-      expect(STDOUT).to receive(:puts).with("Answering question: #{question}")
-      expect(STDOUT).to receive(:puts).with("Generated SQL query: #{query}")
-      expect(STDOUT).to receive(:puts).with("Response from database: #{db_response.inspect}")
+      expect($stdout).to receive(:puts).with("Answering question: #{question}")
+      expect($stdout).to receive(:puts).with("Generated SQL query: #{query}")
+      expect($stdout).to receive(:puts).with("Response from database: #{db_response.inspect}")
       service.answer(question, query, db_response)
     end
   end

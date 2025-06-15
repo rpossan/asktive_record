@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # AsktiveRecord Initializer
 AsktiveRecord.configure do |config|
   # === LLM Provider ===

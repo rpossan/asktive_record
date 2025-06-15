@@ -48,24 +48,21 @@ module AsktiveRecord
           # Execute using the general ActiveRecord connection (for service classes)
           # Use select_all for SELECT queries, which returns an array of hashes
           # For other query types (if sanitization allows), execute might be needed
+          if ActiveRecord::Base.connection.respond_to?(:exec_query)
+            ActiveRecord::Base.connection.exec_query(@sanitized_sql)
+          end
           result = if @sanitized_sql.strip.downcase.start_with?("select")
-                     if ActiveRecord::Base.connection.respond_to?(:exec_query)
-                       ActiveRecord::Base.connection.exec_query(@sanitized_sql)
-                     end
                      ActiveRecord::Base.connection.select_all(@sanitized_sql)
                    else
                      # If sanitization allows non-SELECT, use select_all
                      # Note: This path requires careful sanitization to avoid security risks
-                     if ActiveRecord::Base.connection.respond_to?(:exec_query)
-                       ActiveRecord::Base.connection.exec_query(@sanitized_sql)
-                     end
                      ActiveRecord::Base.connection.execute(@sanitized_sql)
                    end
         end
 
         # Return the result of the query execution
 
-        result = result[0]["count"] if result && result.is_a?(Array) && result[0].key?("count")
+        result = result[0]["count"] if result.is_a?(Array) && result[0].key?("count")
         result
       rescue StandardError => e
         # Catch potential ActiveRecord::StatementInvalid or other DB errors
