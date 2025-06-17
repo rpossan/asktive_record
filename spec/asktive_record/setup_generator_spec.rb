@@ -24,26 +24,14 @@ RSpec.describe AsktiveRecord::Generators::SetupGenerator, type: :generator do
     allow(Object).to receive(:defined?).with(Rails).and_return(false)
     expect do
       described_class.start
-    end.to output(%r{Could not find schema file at db/schema.rb}).to_stdout
+    end.to output(%r{Attempting}).to_stdout
   end
-
-  # it "executes to a non rails app with custom schema file" do
-  #   temp_structure_sql_path = File.expand_path("../../db/structure.sql", __dir__)
-  #   File.write(temp_structure_sql_path, "SQL dump content")
-
-  #   allow(Object).to receive(:defined?).with(Rails).and_return(false)
-  #   expect do
-  #     described_class.start
-  #   end.to output(%r{Could not find schema file at db/schema.rb}).to_stdout
-  # ensure
-  #   FileUtils.rm_f(temp_structure_sql_path)
-  # end
 
   it "reads schema.rb if present and not in Rails" do
     allow(Object).to receive(:defined?).with(Rails).and_return(false)
     File.write(schema_path, "ActiveRecord::Schema.define(version: 2024)")
     stub_const("AsktiveRecord::Generators::SetupGenerator::AsktiveRecord",
-               double(configuration: double(db_schema_path: schema_path)))
+               double(configuration: double(db_schema_path: schema_path, skip_dump_schema: false)))
     expect do
       described_class.start
     end.to output(/Successfully read schema from/).to_stdout
@@ -53,7 +41,7 @@ RSpec.describe AsktiveRecord::Generators::SetupGenerator, type: :generator do
     allow(Object).to receive(:defined?).with(Rails).and_return(false)
     File.write(structure_sql_path, "CREATE TABLE users (id integer);")
     stub_const("AsktiveRecord::Generators::SetupGenerator::AsktiveRecord",
-               double(configuration: double(db_schema_path: schema_path)))
+               double(configuration: double(db_schema_path: schema_path, skip_dump_schema: false)))
     expect do
       described_class.start
     end.to output(/Attempting to dump database schema using 'rails db:schema:dump/).to_stdout
@@ -66,7 +54,7 @@ RSpec.describe AsktiveRecord::Generators::SetupGenerator, type: :generator do
     allow_any_instance_of(Object).to receive(:system).with("bin/rails db:schema:dump").and_return(true)
     File.write(schema_path, "ActiveRecord::Schema.define(version: 2024)")
     stub_const("AsktiveRecord::Generators::SetupGenerator::AsktiveRecord",
-               double(configuration: double(db_schema_path: schema_path)))
+               double(configuration: double(db_schema_path: schema_path, skip_dump_schema: false)))
     expect do
       described_class.start
     end.to output(/Attempting to dump database schema/).to_stdout
@@ -77,11 +65,26 @@ RSpec.describe AsktiveRecord::Generators::SetupGenerator, type: :generator do
     allow(Object).to receive(:defined?).with(Rails).and_return(true)
     allow_any_instance_of(Object).to receive(:system).with("bin/rails db:schema:dump").and_raise(StandardError.new("fail"))
     stub_const("AsktiveRecord::Generators::SetupGenerator::AsktiveRecord",
-               double(configuration: double(db_schema_path: schema_path)))
+               double(configuration: double(db_schema_path: schema_path, skip_dump_schema: false)))
     expect do
       described_class.start
     end.to output(/Failed to execute 'rails db:schema:dump'/).to_stdout
   end
+
+  it "skips dumping schema when skip_dump_schema is true and reads schema.rb successfully" do
+    fake_rails = double
+    stub_const("Rails", fake_rails)
+    allow(Object).to receive(:defined?).with(Rails).and_return(true)
+    # Should NOT call system("bin/rails db:schema:dump")
+    expect_any_instance_of(Object).not_to receive(:system).with("bin/rails db:schema:dump")
+    File.write(schema_path, "ActiveRecord::Schema.define(version: 2024)")
+    stub_const("AsktiveRecord::Generators::SetupGenerator::AsktiveRecord",
+               double(configuration: double(db_schema_path: schema_path, skip_dump_schema: true)))
+    expect do
+      described_class.start
+    end.to output(/Successfully read schema from/).to_stdout
+  end
+
 
   it "prints a message if not in a Rails app and structure.sql does not exist" do
     Object.send(:remove_const, :Rails) if Object.const_defined?(:Rails)

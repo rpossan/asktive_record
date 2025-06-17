@@ -47,7 +47,7 @@ module AsktiveRecord
       end
 
       def try_dump_schema(schema_path)
-        return unless defined?(Rails)
+        return unless defined?(Rails) && !AsktiveRecord.configuration.skip_dump_schema
 
         system("bin/rails db:schema:dump")
         File.exist?(schema_path) ? File.read(schema_path) : nil

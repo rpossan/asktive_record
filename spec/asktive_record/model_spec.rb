@@ -218,6 +218,7 @@ RSpec.describe AsktiveRecord do
       expect(AsktiveRecord.configuration.object_id).to eq(first_config_object_id)
       expect(AsktiveRecord.configuration.llm_api_key).to eq("first_key")
       expect(AsktiveRecord.configuration.llm_model_name).to eq("new_model")
+      expect(AsktiveRecord.configuration.skip_dump_schema).to eq(false)
     end
   end
 

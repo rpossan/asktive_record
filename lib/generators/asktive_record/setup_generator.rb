@@ -30,8 +30,7 @@ module AsktiveRecord
 
       def dump_and_read_schema(schema_path)
         puts "Attempting to dump database schema using 'rails db:schema:dump'..."
-        system("bin/rails db:schema:dump")
-
+        system("bin/rails db:schema:dump") unless AsktiveRecord.configuration.skip_dump_schema
         read_schema_file(schema_path) || read_structure_sql || schema_not_found_message(schema_path)
       rescue StandardError => e
         puts "Failed to execute 'rails db:schema:dump' or read schema: #{e.message}"
