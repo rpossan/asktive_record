@@ -1,6 +1,9 @@
 # frozen_string_literal: true
 
 module AsktiveRecord
+  # Configuration class for AsktiveRecord
+  # This class holds the configuration settings for the LLM provider, API key, model name
+  # and database schema path.
   class Configuration
     attr_accessor :llm_provider, :llm_api_key, :llm_model_name, :db_schema_path
 

@@ -1,5 +1,9 @@
 AllCops:
   TargetRubyVersion: 3.0
+  Exclude:
+    - 'spec/**/*'
+    - 'db/schema.rb'
+    - 'vendor/**/*'
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "asktive_record/version"
 require "asktive_record/error"
 require "asktive_record/configuration"
@@ -5,7 +7,10 @@ require "asktive_record/model"
 require "asktive_record/service"
 require "asktive_record/query"
 
+# The AsktiveRecord module provides natural language querying capabilities
+# and service/model extensions for ActiveRecord-like classes.
 module AsktiveRecord
+  extend Service::ClassMethods
   class << self
     attr_accessor :configuration
   end
