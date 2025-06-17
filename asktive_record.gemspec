@@ -9,7 +9,9 @@ Gem::Specification.new do |spec|
   spec.email = ["rpossan@users.noreply.github.com"]
 
   spec.summary = "A Ruby gem that integrates with LLMs to translate natural language queries into SQL."
-  spec.description = "AsktiveRecord allows developers to integrate Large Language Models (like OpenAI's ChatGPT) into their Ruby on Rails applications, enabling natural language querying against their database. It provides tools to configure the LLM, upload database schema for context, and convert human-like questions into executable SQL queries."
+  spec.description = "AsktiveRecord allows developers to integrate Large Language Models (like OpenAI's ChatGPT) into\
+   their Ruby on Rails applications, enabling natural language querying against their database. It provides tools to \
+   configure the LLM, upload database schema for context, and convert human-like questions into executable SQL queries."
   spec.homepage = "https://github.com/rpossan/asktive_record"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0.0"

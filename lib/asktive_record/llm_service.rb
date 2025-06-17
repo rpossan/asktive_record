@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
 require "openai"
+require "asktive_record/prompt"
 
 module AsktiveRecord
+  # Service class for interacting with the LLM API to generate SQL queries
+  # and answer questions based on the generated queries and database responses.
   class LlmService
     attr_reader :configuration
 
@@ -11,7 +14,8 @@ module AsktiveRecord
       return if @configuration&.llm_api_key
 
       raise ConfigurationError,
-            "LLM API key is not configured. Please set it in config/initializers/asktive_record.rb or via environment variable."
+            "LLM API key is not configured. Please set it in config/initializers/asktive_record.rb\
+ or via environment variable."
     end
 
     # Placeholder for schema upload/management with the LLM if needed for more advanced scenarios
@@ -34,26 +38,11 @@ module AsktiveRecord
     def generate_sql(natural_language_query, schema_string, table_name)
       client = OpenAI::Client.new(access_token: configuration.llm_api_key)
 
-      prompt = <<~PROMPT
-        You are an expert SQL generator. Your task is to convert a natural language query into a SQL query for a database with the following schema.
-        Only generate SELECT queries. Do not generate any INSERT, UPDATE, DELETE, DROP, or other DDL/DML statements.
-        The query should be for the table: #{table_name}.
-
-        Database Schema:
-        ```sql
-        #{schema_string}
-        ```
-
-        Natural Language Query: "#{natural_language_query}"
-
-        Based on the schema and the natural language query, provide only the SQL query as a single line of text, without any explanation or surrounding text.
-        For example, if the query is "show me all users", and the table is `users`, the output should be:
-        SELECT * FROM users;
-        If the query is "find the last 5 registered users", the output should be:
-        SELECT * FROM users ORDER BY created_at DESC LIMIT 5;
-
-        SQL Query:
-      PROMPT
+      prompt = Prompt.as_sql_generator_for_model(
+        natural_language_query,
+        schema_string,
+        table_name
+      )
 
       generate_and_validate_sql(client, prompt)
     end
@@ -61,93 +50,74 @@ module AsktiveRecord
     # New method for service-class-based queries that can target any table
     def generate_sql_for_service(natural_language_query, schema_string, _target_table = "any")
       client = OpenAI::Client.new(access_token: configuration.llm_api_key)
-
-      prompt = <<~PROMPT
-        You are an expert SQL generator. Your task is to convert a natural language query into a SQL query for a database with the following schema.
-        Only generate SELECT queries. Do not generate any INSERT, UPDATE, DELETE, DROP, or other DDL/DML statements.
-
-        Database Schema:
-        ```sql
-        #{schema_string}
-        ```
-
-        Natural Language Query: "#{natural_language_query}"
-
-        Based on the schema and the natural language query, provide only the SQL query as a single line of text, without any explanation or surrounding text.
-        You should determine the appropriate table(s) to query from the schema and the natural language query.
-        Use JOINs when necessary to query data across multiple tables.
-
-        Examples:
-        - If the query is "show me all users", the output should be: SELECT * FROM users;
-        - If the query is "find the last 5 registered users", the output should be: SELECT * FROM users ORDER BY created_at DESC LIMIT 5;
-        - If the query is "show me products with their categories", the output might be: SELECT products.*, categories.name as category_name FROM products JOIN categories ON products.category_id = categories.id;
-        - If the query is "which is the cheapest product", the output might be: SELECT * FROM products ORDER BY price ASC LIMIT 1;
-
-        SQL Query:
-      PROMPT
-
+      prompt = Prompt.as_sql_generator(natural_language_query, schema_string)
       generate_and_validate_sql(client, prompt)
     end
 
     private
 
     def answer_as_human(question, query, response)
-      prompt = <<~PROMPT
-        Keep in mind the language of the question is in "#{question}".
-        If thre responses seems like an ActiveRerecord::Result because probably it was running as inspec
-        to be passed here, please convert it to a human-readable format. For example, get the @rows in the string
-        and convert it to a human-readable format.
-        Based on the provided schema, I ask about the following question:
-        "#{question}" and you give me the following SQL generated:
-        #{query}. So I executed the query and got the following result in my database:
-        #{response}.
-        Now I need you to answer the question based on what I asked you and the result I got.
-        Please provide a concise answer based on the result as a human would, without any SQL or technical jargon.
-        E.g. if the result is a list of users, you might say "There are 5 users in the database." or "The first user is John Doe." or "The average age of users is 30 years." depending on the context of the question.
-        Answer in the same language as the question was asked in "#{question}"
-      PROMPT
-      client = OpenAI::Client.new(access_token: configuration.llm_api_key)
-      response = client.chat(
-        parameters: {
-          model: configuration.llm_model_name || "gpt-3.5-turbo",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.2, # Lower temperature for more deterministic output
-          max_tokens: 250 # Increased max tokens for more complex queries
-        }
-      )
-      response.dig("choices", 0, "message", "content")&.strip
+      prompt = Prompt.as_human_answerer(question, query, response)
+      client = build_client
+      llm_response = call_llm(client, prompt)
+      extract_answer(llm_response)
     rescue OpenAI::Error => e
       raise ApiError, "OpenAI API error: #{e.message}"
     rescue StandardError => e
       raise QueryGenerationError, "Failed to generate SQL query: #{e.message}"
     end
 
-    def generate_and_validate_sql(client, prompt)
-      response = client.chat(
+    def build_client
+      OpenAI::Client.new(access_token: configuration.llm_api_key)
+    end
+
+    def call_llm(client, prompt)
+      client.chat(
         parameters: {
           model: configuration.llm_model_name || "gpt-3.5-turbo",
           messages: [{ role: "user", content: prompt }],
-          temperature: 0.2, # Lower temperature for more deterministic SQL output
-          max_tokens: 250 # Increased max tokens for more complex queries with JOINs
+          temperature: 0.2,
+          max_tokens: 250
         }
       )
+    end
 
-      raw_sql = response.dig("choices", 0, "message", "content")&.strip
+    def extract_answer(response)
+      response.dig("choices", 0, "message", "content")&.strip
+    end
 
-      unless raw_sql && !raw_sql.empty?
-        raise QueryGenerationError, "LLM did not return a SQL query. Response: #{response.inspect}"
-      end
-      # Basic validation: ensure it's a SELECT query as requested
-      unless raw_sql.downcase.start_with?("select")
-        raise QueryGenerationError, "LLM generated a non-SELECT query: #{raw_sql}"
-      end
-
-      # Remove trailing semicolon if present, as some DB adapters don't like it with find_by_sql
-      raw_sql.chomp(";")
+    def generate_and_validate_sql(client, prompt)
+      raw_sql = fetch_sql_from_llm(client, prompt)
+      validate_sql_response!(raw_sql)
+      sanitize_sql(raw_sql)
     rescue OpenAI::Error => e
       raise ApiError, "OpenAI API error: #{e.message}"
     rescue StandardError => e
       raise QueryGenerationError, "Failed to generate SQL query: #{e.message}"
+    end
+
+    def fetch_sql_from_llm(client, prompt)
+      response = client.chat(
+        parameters: {
+          model: configuration.llm_model_name || "gpt-3.5-turbo",
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.2,
+          max_tokens: 250
+        }
+      )
+      response.dig("choices", 0, "message", "content")&.strip
+    end
+
+    def validate_sql_response!(raw_sql)
+      raise QueryGenerationError, "LLM did not return a SQL query." if raw_sql.nil? || raw_sql.empty?
+
+      return if raw_sql.downcase.start_with?("select")
+
+      raise QueryGenerationError, "LLM generated a non-SELECT query: #{raw_sql}"
+    end
+
+    def sanitize_sql(sql)
+      sql.chomp(";")
     end
   end
 end
