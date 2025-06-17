@@ -24,4 +24,11 @@ AsktiveRecord.configure do |config|
   # This is used by the `asktive_record:setup` command to provide context to the LLM.
   # Default is "db/schema.rb".
   # config.db_schema_path = "db/schema.rb"
+  #
+  # === Skip dump schema ===
+  # If set to true, the schema will not be dumped when running the
+  # `asktive_record:setup` command.
+  # This is useful if you want to manage schema dumps manually
+  # or if you are using a different schema management strategy.
+  # config.skip_dump_schema = false
 end

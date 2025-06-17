@@ -56,7 +56,7 @@ module AsktiveRecord
       end
 
       def fallback_schema_from_rails(path)
-        system("bin/rails db:schema:dump")
+        system("bin/rails db:schema:dump") unless AsktiveRecord.configuration.skip_dump_schema
         return File.read(path) if File.exist?(path)
 
         alt_path = "db/structure.sql"

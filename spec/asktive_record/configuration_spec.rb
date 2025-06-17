@@ -11,6 +11,7 @@ RSpec.describe AsktiveRecord::Configuration do
       expect(config.llm_api_key).to be_nil
       expect(config.llm_model_name).to eq("gpt-3.5-turbo")
       expect(config.db_schema_path).to eq("db/schema.rb")
+      expect(config.skip_dump_schema).to eq(false)
     end
   end
 
@@ -21,11 +22,13 @@ RSpec.describe AsktiveRecord::Configuration do
       config.llm_api_key = "test_key"
       config.llm_model_name = "test_model"
       config.db_schema_path = "custom/schema.sql"
+      config.skip_dump_schema = true
 
       expect(config.llm_provider).to eq(:another_llm)
       expect(config.llm_api_key).to eq("test_key")
       expect(config.llm_model_name).to eq("test_model")
       expect(config.db_schema_path).to eq("custom/schema.sql")
+      expect(config.skip_dump_schema).to eq(true)
     end
   end
 end
