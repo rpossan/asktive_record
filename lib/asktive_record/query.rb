@@ -63,7 +63,7 @@ module AsktiveRecord
     end
 
     def active_record_model?
-      model_class.respond_to?(:find_by_sql) && model_class.table_name.present?
+      model_class.respond_to?(:find_by_sql) && model_class.respond_to?(:table_name) && !model_class.table_name.to_s.empty?
     end
 
     def execute_raw_sql

@@ -2,7 +2,14 @@
 
 require "debug"
 require "simplecov"
+require "simplecov-console"
+
+SimpleCov.formatter = SimpleCov::Formatter::MultiFormatter.new([
+  SimpleCov::Formatter::HTMLFormatter,
+  SimpleCov::Formatter::Console,
+])
 SimpleCov.start do
+  puts "SimpleCov output directory: #{SimpleCov.coverage_path}"
   enable_coverage :branch
   add_filter "/spec/" # Exclude spec files from coverage
   add_filter "lib/asktive_record/version.rb" # Exclude version file from coverage

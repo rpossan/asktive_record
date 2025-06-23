@@ -207,6 +207,39 @@ RSpec.describe AsktiveRecord::Query do
         end.to raise_error(AsktiveRecord::QueryExecutionError, /Failed to execute SQL query: Database error/)
       end
     end
+
+    context "when the query result contains a count" do
+      let(:query_for_model_with_count) { described_class.new(nil, "SELECT COUNT(*) as count FROM users", model_class) }
+      let(:query_for_service_with_count) { described_class.new(nil, "SELECT COUNT(*) as count FROM users", service_class) }
+
+      it "extracts the count for ActiveRecord model results" do
+        count_result_mock = double("CountResult")
+        allow(count_result_mock).to receive(:respond_to?).with(:count).and_return(true)
+        allow(count_result_mock).to receive(:count).and_return(42)
+        allow(model_class).to receive(:find_by_sql).with(query_for_model_with_count.sanitized_sql).and_return([count_result_mock])
+
+        query_for_model_with_count.sanitize!
+        expect(query_for_model_with_count.execute).to eq(42)
+      end
+
+      it "extracts the count for service class results (array of hashes)" do
+        allow(ActiveRecord::Base.connection).to receive(:select_all)
+          .with(query_for_service_with_count.sanitized_sql)
+          .and_return([{ "count" => 101, "other_col" => "abc" }])
+
+        query_for_service_with_count.sanitize!
+        expect(query_for_service_with_count.execute).to eq(101)
+      end
+
+      it "returns the full result if count is present but not in the expected structure for service" do
+        allow(ActiveRecord::Base.connection).to receive(:select_all)
+          .with(query_for_service_with_count.sanitized_sql)
+          .and_return([{ "total_records" => 101 }]) # "count" key is missing
+
+        query_for_service_with_count.sanitize!
+        expect(query_for_service_with_count.execute).to eq([{ "total_records" => 101 }])
+      end
+    end
   end
 
   describe "#to_s" do

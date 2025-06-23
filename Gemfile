@@ -9,6 +9,7 @@ group :development, :test do
   gem "debug"
   gem "generator_spec" # For testing generators
   gem "simplecov", require: false
+  gem "simplecov-console", require: false
 end
 gem "rake", "~> 13.0"
 gem "rspec", "~> 3.0"
