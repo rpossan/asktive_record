@@ -6,7 +6,7 @@ Gem::Specification.new do |spec|
   spec.name = "asktive_record"
   spec.version = AsktiveRecord::VERSION
   spec.authors = ["rpossan"]
-  spec.email = ["rpossan@users.noreply.github.com"]
+  spec.email = ["ronaldo.possan@gmail.com"]
 
   spec.summary = "A Ruby gem that integrates with LLMs to translate natural language queries into SQL."
   spec.description = "AsktiveRecord allows developers to integrate Large Language Models (like OpenAI's ChatGPT) into\
