@@ -1,4 +1,4 @@
-# AsktiveRecord: Natural Language Database Querying for Ruby on Rails
+# AsktiveRecord: A Ruby gem that lets your data answer like a human
 
 [![Gem Version](https://badge.fury.io/rb/asktive_record.svg)](https://badge.fury.io/rb/asktive_record) <!-- Placeholder: Update once published -->
 [![Build Status](https://github.com/rpossan/asktive_record/actions/workflows/main.yml/badge.svg)](https://github.com/rpossan/asktive_record/actions/workflows/main.yml) <!-- Placeholder: Update with correct repo path -->
