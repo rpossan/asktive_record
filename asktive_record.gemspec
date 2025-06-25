@@ -8,7 +8,7 @@ Gem::Specification.new do |spec|
   spec.authors = ["rpossan"]
   spec.email = ["ronaldo.possan@gmail.com"]
 
-  spec.summary = "A Ruby gem that lets your data answer like a human"
+  spec.summary = "A Ruby gem that lets your data answer like a human using LLM"
   spec.description = "AsktiveRecord is a Ruby gem designed to bridge the gap between human language and database\
    queries. It lets you interact with your Rails database as if you were having a conversation with a knowledgeable \
    assistant. Instead of writing SQL or chaining ActiveRecord methods, you simply ask questions \

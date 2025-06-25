@@ -3,7 +3,7 @@
 [![Gem Version](https://badge.fury.io/rb/asktive_record.svg)](https://badge.fury.io/rb/asktive_record) <!-- Placeholder: Update once published -->
 [![Build Status](https://github.com/rpossan/asktive_record/actions/workflows/main.yml/badge.svg)](https://github.com/rpossan/asktive_record/actions/workflows/main.yml) <!-- Placeholder: Update with correct repo path -->
 
-> **AsktiveRecord** is a Ruby gem designed to bridge the gap between human language and database queries. It lets you interact with your Rails database as if you were having a conversation with a knowledgeable assistant. Instead of writing SQL or chaining ActiveRecord methods, you simply ask questions in plain English—like (or any language) "Who are my newest users?" or "What products sold the most last month?"—and get clear, human-friendly answers. AsktiveRecord translates your questions into database queries behind the scenes, so you can focus on what you want to know, not how to write the query.
+> **AsktiveRecord** is a Ruby gem designed to bridge the gap between human language and database queries. It lets you interact with your Rails database as if you were having a conversation with a knowledgeable assistant. Instead of writing SQL or chaining ActiveRecord methods, you simply ask questions in plain English—like (or any language) "Who are my newest users?" or "What products sold the most last month?"—and get clear, human-friendly answers. AsktiveRecord translates your questions into database queries using LLM behind the scenes, so you can focus on what you want to know, not how to write the query.
 
 ## Features
 
