@@ -195,8 +195,6 @@ results = query.execute
 # => results is an array of User objects
 ```
 
-### The `AsktiveRecord::Query` Object
-
 ### The `.answer` Method
 
 The `.answer` method provides a human-friendly, natural language response to your query, instead of returning raw data or SQL. When you call `.answer` on a query object, AsktiveRecord executes the query and uses the LLM to generate a concise, readable answer based on the results.
