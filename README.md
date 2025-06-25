@@ -3,14 +3,15 @@
 [![Gem Version](https://badge.fury.io/rb/asktive_record.svg)](https://badge.fury.io/rb/asktive_record) <!-- Placeholder: Update once published -->
 [![Build Status](https://github.com/rpossan/asktive_record/actions/workflows/main.yml/badge.svg)](https://github.com/rpossan/asktive_record/actions/workflows/main.yml) <!-- Placeholder: Update with correct repo path -->
 
-**AsktiveRecord** is a Ruby gem designed to bridge the gap between human language and database queries. It integrates with Large Language Models (LLMs) like OpenAI's ChatGPT to allow developers to query their Rails application's database using natural language.
-
-Imagine your users (or even you, the developer!) asking questions like "*Show me the last five users who signed up*" or "*Which products had the most sales last month?*" and getting back the actual data, powered by an LLM translating these questions into SQL.
+> **AsktiveRecord** is a Ruby gem designed to bridge the gap between human language and database queries. It lets you interact with your Rails database as if you were having a conversation with a knowledgeable assistant. Instead of writing SQL or chaining ActiveRecord methods, you simply ask questions in plain English—like (or any language) "Who are my newest users?" or "What products sold the most last month?"—and get clear, human-friendly answers. AsktiveRecord translates your questions into database queries behind the scenes, so you can focus on what you want to know, not how to write the query.
 
 ## Features
 
 *   **Natural Language to SQL**: Convert human-readable questions into SQL queries.
 *   **LLM Integration**: Currently supports OpenAI's ChatGPT, with a design that allows for future expansion to other LLMs (e.g., Gemini).
+*   **Get Answers, Not Just Data**: Use the `.answer` method to get concise, human-readable responses to your queries, rather than raw data or SQL.
+*   **Avoid ActiveRecord Chaining and SQL**: No need to write complex ActiveRecord queries or SQL statements. Just ask your question in natural language.
+*   **Works with Multiple Languages**: While the gem is designed with English in mind, it can handle queries in other languages, depending on the LLM's capabilities.
 *   **Flexible Querying Options**:
     *   Use with specific models (e.g., `User.ask("query")`)
     *   Use with service classes to query any table (e.g., `AskService.ask("query")`)
@@ -58,8 +59,6 @@ After installing the gem, you need to run the installer to generate the configur
 
 ```bash
 $ bundle exec rails generate asktive_record:install
-# or, if you're not in a full Rails app context for the generator (less common for this gem):
-# $ bundle exec asktive_record:install (This might require further setup for standalone use)
 ```
 
 This will create an initializer file at `config/initializers/asktive_record.rb`.
@@ -110,9 +109,19 @@ Run the setup command to help AsktiveRecord understand your database structure. 
 
 ```bash
 $ bundle exec rails generate asktive_record:setup
-# or
-# $ bundle exec asktive_record:setup
 ```
+
+If your app uses a custom schema file or a non-standard schema location, you can specify the path in your configuration. For example, if your schema is located at `db/custom_schema.rb`, update your initializer:
+
+```ruby
+AsktiveRecord.configure do |config|
+  config.db_schema_path = "db/custom_schema.rb"
+  config.skip_dump_schema = true # If your app uses a legacy schema or doesn't need to dump it using rails db:schema:dump (default is false)
+end
+```
+
+This ensures AsktiveRecord reads the correct schema file when providing context to the LLM. Make sure the specified file accurately reflects your database structure.
+
 
 This step ensures that the LLM has the necessary context about your tables and columns to generate accurate SQL queries. The schema content is passed with each query to the LLM in the current version.
 
@@ -123,25 +132,32 @@ AsktiveRecord offers two ways to query your database using natural language:
 ### 1. Model-Specific Querying
 
 This approach ties queries to specific models, ideal when you know which table you want to query.
+If you want to apply AsktiveRecord for all your Rails models, add the `include AsktiveRecord` line in your `ApplicationRecord` or specific models. This allows you to use the `.ask` method directly on those models.
 
 ```ruby
 # First, include AsktiveRecord in your ApplicationRecord or specific models
 class ApplicationRecord < ActiveRecord::Base
   primary_abstract_class
-  # Include AsktiveRecord here if you want all models to have the .ask method
-  # include AsktiveRecord
+  include AsktiveRecord
 end
 
-# Then, in your specific model, activate AsktiveRecord
+# Or in a specific model
+# In this case, you can query the User model directly for the model table. All queries will be scoped to the users table.
 class User < ApplicationRecord
-  include AsktiveRecord # Include the module
-  asktive_record # Activate model-specific setup (optional, future use)
+  include AsktiveRecord
 end
 
 # Now you can query the User model directly
-natural_query = "Find the last five users who signed up"
-asktive_record_query = User.ask(natural_query)
-# => Returns a Query object with SQL targeting the users table
+query = User.ask("Show me the last five users who signed up")
+# => Returns a Query object with SQL targeting the users table, not the sql executed yet
+
+# Call the execute method to run the query on the database
+results = query.execute
+# => Returns an array of User objects (if the query is a SELECT) or raises an
+
+# If you want to execute the query and get the response like human use the method answer
+results = query.answer
+# => Returns a string with the answer to the question, e.g., "The last five users who signed up are: [User1, User2, User3, User4, User5]"
 ```
 
 ### 2. Service-Class Querying (Any Table)
@@ -156,74 +172,62 @@ class AskService
 end
 
 # Now you can query any table through this service
-natural_query = "Which is the last user created?"
-asktive_record_query = AskService.ask(natural_query)
-# => Returns a Query object with SQL targeting the users table
+asktive_record_query = AskService.ask("Which is the last user created?")
+# => Returns a Query object with SQL targeting the users table, not the sql executed yet
 
-natural_query = "Which is the cheapest product?"
-asktive_record_query = AskService.ask(natural_query)
-# => Returns a Query object with SQL targeting the products table
+asktive_record_query = AskService.ask("Which is the cheapest product?").execute
+# => Returns an ActiveRecord::Result object (array of hashes) with the cheapest product details
 
-natural_query = "Show me products with their categories"
-asktive_record_query = AskService.ask(natural_query)
+asktive_record_query = AskService.ask("Show me products with their categories").answer
 # => Returns a Query object with SQL that might include JOINs between products and categories
-```
-
-You can also use AsktiveRecord directly for one-off queries:
-
-```ruby
-natural_query = "Show me all active subscriptions with their users"
-asktive_record_query = AsktiveRecord.ask(natural_query)
+# => Returns a string with the answer to the question, e.g., "The products with their categories are: [Product1, Product2, ...]"
 ```
 
 ### Working with Query Results
 
-Regardless of which approach you use, you'll get a `AsktiveRecord::Query` object that you can work with:
-
+Once you have executed a query, you can work with the results. The `execute` method returns different types of results based on the context:
+*   If the query is from a model (e.g., `User.ask(...)`), it returns an array of model instances (e.g., `User` objects).
+*   If the query is from a service class (e.g., `AskService.ask(...)`), it returns an `ActiveRecord::Result` object, which is an array of hashes representing the query results.
 ```ruby
-# 1. Get the generated SQL
-puts "LLM Generated SQL: #{asktive_record_query.raw_sql}"
-# => LLM Generated SQL: SELECT * FROM users ORDER BY created_at DESC LIMIT 5
-
-# 2. (Recommended) Sanitize the query
-begin
-  asktive_record_query.sanitize! # Raises AsktiveRecord::SanitizationError if it's not a SELECT query by default
-  puts "Sanitized SQL: #{asktive_record_query.sanitized_sql}"
-rescue AsktiveRecord::SanitizationError => e
-  puts "Error: #{e.message}"
-  # Handle error, maybe log it or don't execute the query
-  return
-end
-
-# 3. Execute the query
-begin
-  results = asktive_record_query.execute
-  # Process the results
-  # - If executed via a model (e.g., User.ask), results will be an array of User objects.
-  # - If executed via a service class (e.g., AskService.ask), results will be an array of Hashes (from ActiveRecord::Result).
-  results.each do |record|
-    puts record.inspect
-  end
-rescue AsktiveRecord::QueryExecutionError => e
-  puts "Error executing query: #{e.message}"
-  # Handle database execution errors
-end
-```
-
-### Advanced Options
-
-When using the service-class approach, you can provide additional options:
-
-```ruby
-# Specify a target model for execution (useful if you want ActiveRecord objects back)
-# Note: This currently doesn't change the execution method but might in the future.
-asktive_record_query = AskService.ask("Show me all products", model: Product)
-
-# Specify a target table name for the LLM prompt
-asktive_record_query = AskService.ask("Show me all items on sale", table_name: "products")
+# Example of working with results from a model query
+query = User.ask("Who are my newest users?")
+results = query.execute
+# => results is an array of User objects
 ```
 
 ### The `AsktiveRecord::Query` Object
+
+### The `.answer` Method
+
+The `.answer` method provides a human-friendly, natural language response to your query, instead of returning raw data or SQL. When you call `.answer` on a query object, AsktiveRecord executes the query and uses the LLM to generate a concise, readable answer based on the results.
+
+### Example Usage
+
+
+```ruby
+# Using a service class to ask a question
+response = AskService.ask("Which is the cheapest product?").answer
+# => "The cheapest product is the Earphone."
+
+# Using a model to ask a question
+response = User.ask("Who signed up most recently?").answer
+# => "The most recently signed up user is Alice Smith."
+
+# Asking for a summary
+response = AskService.ask("How many orders were placed last week?").answer
+# => "There were 42 orders placed last week."
+```
+
+Tip: You can get the query param and interpolates it into the ask method to get a more specific answer. For example, if you want to know the last user created, you can do:
+
+```ruby
+customer = Customer.find(params[:id])
+query = "Which is my most sold product?"
+response = AskService.ask("For the customer #{customer.id}, #{query}").answer
+# => "The most sold product for customer ABC is the Premium Widget."
+```
+
+The `.answer` method is ideal when you want a direct, human-readable summary, rather than an array of records or a SQL query.
 
 The `ask()` method returns an instance of `AsktiveRecord::Query`. This object has a few useful methods:
 
@@ -234,6 +238,31 @@ The `ask()` method returns an instance of `AsktiveRecord::Query`. This object ha
     *   If the query originated from a model (e.g., `User.ask(...)`), it uses `YourModel.find_by_sql` and returns model instances.
     *   If the query originated from a service class (e.g., `AskService.ask(...)`), it uses `ActiveRecord::Base.connection.select_all` (for SELECT) or `execute` and returns an `ActiveRecord::Result` object (array of hashes) or connection-specific results.
 *   `to_s`: Returns the `sanitized_sql` (or `raw_sql` if `sanitized_sql` hasn't been modified from raw).
+
+## Logging
+AsktiveRecord provides logging to help you debug and monitor natural language queries, generated SQL, and results. By default, logs are sent to the Rails logger at the `:info` level.
+
+### Example Log Output
+
+When you run a query, you might see logs like:
+
+```
+[AsktiveRecord] Received question: "Who are my newest users?"
+[AsktiveRecord] Generated SQL: SELECT * FROM users ORDER BY created_at DESC LIMIT 5;
+[AsktiveRecord] Sanitized SQL: SELECT * FROM users ORDER BY created_at DESC LIMIT 5;
+[AsktiveRecord] Executing SQL via User.find_by_sql
+[AsktiveRecord] Query results: [#<User id: 1, name: "Alice", ...>, ...]
+```
+
+When using the `.answer` method:
+
+```
+[AsktiveRecord] Received question: "How many orders were placed last week?"
+[AsktiveRecord] Generated SQL: SELECT COUNT(*) FROM orders WHERE created_at >= '2024-06-01' AND created_at < '2024-06-08';
+[AsktiveRecord] Query results: [{"count"=>42}]
+[AsktiveRecord] LLM answer: "There were 42 orders placed last week."
+```
+
 
 ## Supported LLMs
 
