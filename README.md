@@ -5,6 +5,68 @@
 
 > **AsktiveRecord** is a Ruby gem designed to bridge the gap between human language and database queries. It lets you interact with your Rails database as if you were having a conversation with a knowledgeable assistant. Instead of writing SQL or chaining ActiveRecord methods, you simply ask questions in plain English—like (or any language) "Who are my newest users?" or "What products sold the most last month?"—and get clear, human-friendly answers. AsktiveRecord translates your questions into database queries using LLM behind the scenes, so you can focus on what you want to know, not how to write the query.
 
+
+## Installation
+
+Add this line to your application's Gemfile:
+
+```ruby
+gem 'asktive_record'
+```
+
+And then execute:
+
+```bash
+$ bundle install
+```
+
+## Getting Started
+
+
+Create configuration file:
+
+```bash
+$ bundle exec rails generate asktive_record:install
+# It will create a new Rails initializer file at `config/initializers/asktive_record.rb`
+```
+
+Check the config/initializers/asktive_record.rb file to configure your LLM provider and API key. By default, setup will generate and read the `db/schema.rb` (or `db/structure.sql`) to make the LLM aware of your database structure.
+
+
+```bash
+$ bundle exec rails generate asktive_record:setup
+```
+
+This command will generate and read the `db/schema.rb` (or `db/structure.sql`) and make the LLM aware of your database structure. You can change the schema file path and skip the dump schema setting in the `config/initializers/asktive_record.rb` file if you are using a custom schema file or a non-standard schema location for legacy databases e.g., `db/custom_schema.pdf`.
+
+See the [Configuration](#configuration) section for more details.
+
+```ruby
+# Include AsktiveRecord in your ApplicationRecord or specific models
+class User < ApplicationRecord
+  include AsktiveRecord
+end
+
+# Now you can query any table through this service
+query = User.ask("Show me the last five users who signed up")
+# => Returns a Query object with SQL targeting the users table based on your schema. Does not execute the SQL yet.
+
+# You can check the object with the generated SQL:
+query.raw_sql
+# => "SELECT * FROM users ORDER BY created_at DESC LIMIT 5;"
+
+# Call the execute method to run the query on the database
+results = query.execute
+# => Returns an array of User objects (if the query is a SELECT) or raises an `AsktiveRecord::QueryExecutionError` if the query fails.
+
+# If you want to execute the query and get the response like human use the method answer
+results = query.answer
+# => Returns a string with the answer to the question, e.g., "The last five users who signed up are: [User1, User2, User3, User4, User5]"
+```
+
+For more detailed usage instructions, see the [Usage](#usage) section below.
+
+
 ## Features
 
 *   **Natural Language to SQL**: Convert human-readable questions into SQL queries.
@@ -33,27 +95,8 @@
 6.  **Safety First**: The `ask` method returns a `AsktiveRecord::Query` object containing the raw SQL. You can then inspect this SQL, apply sanitization rules (e.g., ensure it's only a `SELECT` statement), and then explicitly execute it.
 7.  **Execution**: The `execute` method intelligently runs the sanitized SQL. If the query originated from a model (like `User.ask`), it uses `User.find_by_sql`. If it originated from a service class (like `AskService.ask`), it uses the general `ActiveRecord::Base.connection` to execute the query, returning an array of hashes for `SELECT` statements.
 
-## Installation
+## Configuration
 
-Add this line to your application's Gemfile:
-
-```ruby
-gem 'asktive_record'
-```
-
-And then execute:
-
-```bash
-$ bundle install
-```
-
-Or install it yourself as:
-
-```bash
-$ gem install asktive_record
-```
-
-## Getting Started
 
 After installing the gem, you need to run the installer to generate the configuration file:
 
@@ -295,5 +338,4 @@ Everyone interacting in the AsktiveRecord project's codebases, issue trackers, c
 
 ---
 
-*This gem was proudly developed with the assistance of an AI agent.* Author: [rpossan](https://github.com/rpossan)
 
