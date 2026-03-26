@@ -6,9 +6,11 @@ SimpleCov.start do
   enable_coverage :branch
   add_filter "/spec/" # Exclude spec files from coverage
   add_filter "lib/asktive_record/version.rb" # Exclude version file from coverage
-  add_filter "lib/generators/asktive_record/templates/asktive_record_initializer.rb" # Exclude generator template from coverage
+  add_filter "lib/generators/asktive_record/templates/asktive_record_initializer.rb" # Exclude generator template
 
-  track_files "lib/**/*.rb" # ✅ Explicitly track your gem source
+  track_files "lib/**/*.rb" # Explicitly track your gem source
+
+  minimum_coverage line: 90, branch: 70
 end
 
 require "asktive_record"
