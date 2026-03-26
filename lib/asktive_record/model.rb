@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "asktive_record/llm_service"
+require "asktive_record/log"
 
 module AsktiveRecord
   module Model
@@ -40,24 +41,17 @@ module AsktiveRecord
         schema_path = AsktiveRecord.configuration.db_schema_path
         return File.read(schema_path) if File.exist?(schema_path)
 
-        puts "Schema file not found at #{schema_path}. Attempting to generate it."
-        try_dump_schema(schema_path) || try_structure_sql || raise_schema_error(schema_path)
+        AsktiveRecord::Log.warn("Schema file not found at #{schema_path}. Attempting fallback.")
+        try_structure_sql || raise_schema_error(schema_path)
       rescue SystemCallError => e
         raise ConfigurationError, "Error reading schema file at #{schema_path}: #{e.message}"
-      end
-
-      def try_dump_schema(schema_path)
-        return unless defined?(Rails) && !AsktiveRecord.configuration.skip_dump_schema
-
-        system("bin/rails db:schema:dump")
-        File.exist?(schema_path) ? File.read(schema_path) : nil
       end
 
       def try_structure_sql
         path = "db/structure.sql"
         return unless File.exist?(path)
 
-        puts "Using schema from #{path}"
+        AsktiveRecord::Log.info("Using schema from #{path}")
         File.read(path)
       end
 

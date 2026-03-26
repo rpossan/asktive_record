@@ -10,7 +10,7 @@ RSpec.describe AsktiveRecord::LlmService do
   let(:configuration) do
     config = AsktiveRecord::Configuration.new
     config.llm_api_key = api_key
-    config.llm_model_name = "gpt-3.5-turbo-test"
+    config.llm_model_name = "gpt-4o-mini-test"
     config
   end
   let(:service) { AsktiveRecord::LlmService.new(configuration) }
@@ -30,7 +30,7 @@ RSpec.describe AsktiveRecord::LlmService do
       expect do
         AsktiveRecord::LlmService.new(configuration)
       end.to raise_error(AsktiveRecord::ConfigurationError,
-                         "LLM API key is not configured. Please set it in config/initializers/asktive_record.rb or via environment variable.")
+                         /LLM API key is not configured/)
     end
   end
 
@@ -66,33 +66,11 @@ RSpec.describe AsktiveRecord::LlmService do
     end
 
     it "constructs the correct prompt for service queries" do
-      expected_prompt = <<~PROMPT
-        You are an expert SQL generator. Your task is to convert a natural language query into a SQL query for a database with the following schema.
-        Only generate SELECT queries. Do not generate any INSERT, UPDATE, DELETE, DROP, or other DDL/DML statements.
-
-        Database Schema:
-        ```sql
-        #{schema_string}
-        ```
-
-        Natural Language Query: "#{natural_language_query}"
-
-        Based on the schema and the natural language query, provide only the SQL query as a single line of text, without any explanation or surrounding text.
-        You should determine the appropriate table(s) to query from the schema and the natural language query.
-        Use JOINs when necessary to query data across multiple tables.
-
-        Examples:
-        - If the query is "show me all users", the output should be: SELECT * FROM users;
-        - If the query is "find the last 5 registered users", the output should be: SELECT * FROM users ORDER BY created_at DESC LIMIT 5;
-        - If the query is "show me products with their categories", the output might be: SELECT products.*, categories.name as category_name FROM products JOIN categories ON products.category_id = categories.id;
-        - If the query is "which is the cheapest product", the output might be: SELECT * FROM products ORDER BY price ASC LIMIT 1;
-
-        SQL Query:
-      PROMPT
+      expected_prompt = AsktiveRecord::Prompt.as_sql_generator(natural_language_query, schema_string)
 
       expect(openai_client_double).to receive(:chat).with(
         parameters: {
-          model: "gpt-3.5-turbo-test",
+          model: "gpt-4o-mini-test",
           messages: [{ role: "user", content: expected_prompt }],
           temperature: 0.2,
           max_tokens: 250
@@ -134,7 +112,9 @@ RSpec.describe AsktiveRecord::LlmService do
         service.generate_sql_for_service(natural_language_query, schema_string, target_table)
       end.to raise_error(AsktiveRecord::QueryGenerationError, "Failed to generate SQL query: Unexpected issue")
     end
+  end
 
+  describe "#generate_sql" do
     let(:natural_language_query) { "show me all users" }
     let(:schema_string) { "CREATE TABLE users (id INTEGER, name VARCHAR(255));" }
     let(:table_name) { "users" }
@@ -155,34 +135,16 @@ RSpec.describe AsktiveRecord::LlmService do
     it "generates SQL successfully for a valid query" do
       allow(openai_client_double).to receive(:chat).and_return(chat_response)
       sql = service.generate_sql(natural_language_query, schema_string, table_name)
-      expect(sql).to eq(expected_sql) # Semicolon should be chomped
+      expect(sql).to eq(expected_sql) # Semicolon should be cleaned
     end
 
     it "constructs the correct prompt" do
-      expected_prompt = <<~PROMPT
-        You are an expert SQL generator. Your task is to convert a natural language query into a SQL query for a database with the following schema.
-        Only generate SELECT queries. Do not generate any INSERT, UPDATE, DELETE, DROP, or other DDL/DML statements.
-        The query should be for the table: #{table_name}.
-
-        Database Schema:
-        ```sql
-        #{schema_string}
-        ```
-
-        Natural Language Query: "#{natural_language_query}"
-
-        Based on the schema and the natural language query, provide only the SQL query as a single line of text, without any explanation or surrounding text.
-        For example, if the query is "show me all users", and the table is `users`, the output should be:
-        SELECT * FROM users;
-        If the query is "find the last 5 registered users", the output should be:
-        SELECT * FROM users ORDER BY created_at DESC LIMIT 5;
-
-        SQL Query:
-      PROMPT
+      expected_prompt = AsktiveRecord::Prompt.as_sql_generator_for_model(natural_language_query, schema_string,
+                                                                        table_name)
 
       expect(openai_client_double).to receive(:chat).with(
         parameters: {
-          model: "gpt-3.5-turbo-test",
+          model: "gpt-4o-mini-test",
           messages: [{ role: "user", content: expected_prompt }],
           temperature: 0.2,
           max_tokens: 250
@@ -197,8 +159,7 @@ RSpec.describe AsktiveRecord::LlmService do
       }
       allow(openai_client_double).to receive(:chat).and_return(non_select_response)
       expect do
-        service.generate_sql(natural_language_query, schema_string,
-                             table_name)
+        service.generate_sql(natural_language_query, schema_string, table_name)
       end.to raise_error(AsktiveRecord::QueryGenerationError, /LLM generated a non-SELECT query/)
     end
 
@@ -208,36 +169,31 @@ RSpec.describe AsktiveRecord::LlmService do
       }
       allow(openai_client_double).to receive(:chat).and_return(empty_response)
       expect do
-        service.generate_sql(natural_language_query, schema_string,
-                             table_name)
+        service.generate_sql(natural_language_query, schema_string, table_name)
       end.to raise_error(AsktiveRecord::QueryGenerationError, /LLM did not return a SQL query/)
     end
 
     it "raises ApiError on OpenAI API errors" do
       allow(openai_client_double).to receive(:chat).and_raise(OpenAI::Error.new("API connection error"))
       expect do
-        service.generate_sql(natural_language_query, schema_string,
-                             table_name)
+        service.generate_sql(natural_language_query, schema_string, table_name)
       end.to raise_error(AsktiveRecord::ApiError, "OpenAI API error: API connection error")
     end
 
     it "raises QueryGenerationError on other unexpected errors during generation" do
       allow(openai_client_double).to receive(:chat).and_raise(StandardError.new("Unexpected issue"))
       expect do
-        service.generate_sql(natural_language_query, schema_string,
-                             table_name)
+        service.generate_sql(natural_language_query, schema_string, table_name)
       end.to raise_error(AsktiveRecord::QueryGenerationError, "Failed to generate SQL query: Unexpected issue")
     end
   end
 
   describe "#upload_schema" do
     it "is a placeholder and returns true" do
-      # As this is a placeholder, we just check it runs without error and returns true.
-      # We can also check the output if it's important for user feedback.
-      expect($stdout).to receive(:puts).with("Schema upload functionality is a placeholder for now.")
       expect(service.upload_schema("schema_string")).to be true
     end
   end
+
   describe "#answer" do
     let(:question) { "Quantos usuários existem?" }
     let(:query) { "SELECT COUNT(*) FROM users" }
@@ -253,10 +209,10 @@ RSpec.describe AsktiveRecord::LlmService do
       expect(service.answer(question, query, db_response)).to eq(human_answer)
     end
 
-    it "prints debug information to stdout" do
-      expect($stdout).to receive(:puts).with("Answering question: #{question}")
-      expect($stdout).to receive(:puts).with("Generated SQL query: #{query}")
-      expect($stdout).to receive(:puts).with("Response from database: #{db_response.inspect}")
+    it "logs debug information via AsktiveRecord::Log" do
+      expect(AsktiveRecord::Log).to receive(:info).with("Answering question: #{question}")
+      expect(AsktiveRecord::Log).to receive(:debug).with("Generated SQL query: #{query}")
+      expect(AsktiveRecord::Log).to receive(:debug).with("Response from database: #{db_response.inspect}")
       service.answer(question, query, db_response)
     end
   end
@@ -266,7 +222,6 @@ RSpec.describe AsktiveRecord::LlmService do
     let(:query) { "SELECT COUNT(*) FROM users" }
     let(:db_response) { [{ "count" => 5 }] }
     let(:llm_response) { "Existem 5 usuários no banco de dados." }
-    let(:expected_prompt_start) { "Keep in mind the language of the question is in" }
 
     before do
       allow(openai_client_double).to receive(:chat).and_return(
@@ -286,8 +241,8 @@ RSpec.describe AsktiveRecord::LlmService do
     it "calls OpenAI client with the correct prompt and returns the LLM's answer" do
       expect(openai_client_double).to receive(:chat).with(
         parameters: hash_including(
-          model: "gpt-3.5-turbo-test",
-          messages: [hash_including(role: "user", content: a_string_including(expected_prompt_start))],
+          model: "gpt-4o-mini-test",
+          messages: [hash_including(role: "user", content: a_string_including("You are a helpful data assistant"))],
           temperature: 0.2,
           max_tokens: 250
         )

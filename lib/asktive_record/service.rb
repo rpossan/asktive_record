@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "asktive_record/llm_service"
+require "asktive_record/log"
 
 module AsktiveRecord
   module Service
@@ -45,30 +46,21 @@ module AsktiveRecord
       end
 
       def attempt_schema_fallback(path)
-        puts "Schema file not found at #{path}. Attempting to generate it. " \
-             "Run 'bundle exec asktive_record:setup' for robust schema handling."
-
-        return fallback_schema_from_rails(path) if defined?(Rails)
-
-        raise ConfigurationError,
-              "Database schema file not found at #{path}. AsktiveRecord needs schema context. " \
-              "Run in a Rails environment or ensure the schema file is present."
-      end
-
-      def fallback_schema_from_rails(path)
-        system("bin/rails db:schema:dump") unless AsktiveRecord.configuration.skip_dump_schema
-        return File.read(path) if File.exist?(path)
+        AsktiveRecord::Log.warn(
+          "Schema file not found at #{path}. " \
+          "Run 'bundle exec rails generate asktive_record:setup' for robust schema handling."
+        )
 
         alt_path = "db/structure.sql"
         return use_alternative_schema(alt_path) if File.exist?(alt_path)
 
         raise ConfigurationError,
-              "Database schema file not found at #{path} or #{alt_path} even after attempting to dump. " \
-              "Please run asktive_record:setup or configure the correct path."
+              "Database schema file not found at #{path}. AsktiveRecord needs schema context. " \
+              "Ensure the schema file is present or configure the correct path."
       end
 
       def use_alternative_schema(path)
-        puts "Using schema from #{path}"
+        AsktiveRecord::Log.info("Using schema from #{path}")
         File.read(path)
       end
 

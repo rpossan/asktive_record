@@ -59,7 +59,6 @@ RSpec.describe AsktiveRecord::Service::ClassMethods do
     end
 
     it "uses LlmService to generate SQL for any table" do
-      # Use allow instead of expect for more flexibility
       allow(llm_service_double).to receive(:generate_sql_for_service)
         .with(natural_query, schema_content, "any")
         .and_return(generated_sql)
@@ -73,7 +72,6 @@ RSpec.describe AsktiveRecord::Service::ClassMethods do
     end
 
     it "accepts a specific table_name option" do
-      # Use allow instead of expect for more flexibility
       allow(llm_service_double).to receive(:generate_sql_for_service)
         .with(natural_query, schema_content, "products")
         .and_return("SELECT * FROM products")
@@ -96,15 +94,13 @@ RSpec.describe AsktiveRecord::Service::ClassMethods do
     context "when schema file is not found" do
       before do
         FileUtils.rm_f(AsktiveRecord.configuration.db_schema_path)
-        # Ensure Rails is not defined for this specific test path
-        hide_const("Rails") if defined?(Rails)
       end
 
-      it "raises ConfigurationError if not in Rails and schema missing" do
+      it "raises ConfigurationError if schema is missing and no structure.sql" do
         expect do
           service_class.ask(natural_query)
         end.to raise_error(AsktiveRecord::ConfigurationError,
-                           %r{Database schema file not found at spec/fixtures/schema.rb. AsktiveRecord needs schema context})
+                           /Database schema file not found/)
       end
     end
 
@@ -118,6 +114,23 @@ RSpec.describe AsktiveRecord::Service::ClassMethods do
           service_class.ask(natural_query)
         end.to raise_error(AsktiveRecord::ConfigurationError,
                            "Schema content is empty. Cannot proceed without database schema context.")
+      end
+    end
+
+    context "when schema.rb is missing but structure.sql exists" do
+      before do
+        FileUtils.rm_f(AsktiveRecord.configuration.db_schema_path)
+        FileUtils.mkdir_p("db")
+        File.write("db/structure.sql", schema_content)
+      end
+
+      after do
+        FileUtils.rm_rf("db")
+      end
+
+      it "falls back to structure.sql" do
+        query_object = service_class.ask(natural_query)
+        expect(query_object).to be_a(AsktiveRecord::Query)
       end
     end
 
@@ -188,7 +201,6 @@ RSpec.describe AsktiveRecord do
       expect(base_class).not_to respond_to(:ask)
       AsktiveRecord.included(base_class)
       expect(base_class).to respond_to(:ask)
-      # Don't test for asktive_record specifically since it depends on class hierarchy
     end
   end
 end

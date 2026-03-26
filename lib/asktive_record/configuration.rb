@@ -2,17 +2,20 @@
 
 module AsktiveRecord
   # Configuration class for AsktiveRecord
-  # This class holds the configuration settings for the LLM provider, API key, model name
-  # and database schema path.
+  # This class holds the configuration settings for the LLM provider, API key, model name,
+  # database schema path, and logging preferences.
   class Configuration
-    attr_accessor :llm_provider, :llm_api_key, :llm_model_name, :db_schema_path, :skip_dump_schema
+    attr_accessor :llm_provider, :llm_api_key, :llm_model_name, :db_schema_path,
+                  :skip_dump_schema, :logger, :read_only
 
     def initialize
       @llm_provider = :openai # Default LLM provider
       @llm_api_key = nil
-      @llm_model_name = "gpt-3.5-turbo" # Default model for OpenAI
+      @llm_model_name = "gpt-4o-mini" # Default model for OpenAI (gpt-3.5-turbo is deprecated)
       @db_schema_path = "db/schema.rb" # Default path for Rails schema file
       @skip_dump_schema = false # Default is to not skip schema dump
+      @logger = nil # Will use AsktiveRecord::Log default if nil
+      @read_only = true # Default to read-only mode (SELECT only)
     end
   end
 end

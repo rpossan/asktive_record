@@ -1,5 +1,8 @@
 # frozen_string_literal: true
 
+require "asktive_record/sql_sanitizer"
+require "asktive_record/log"
+
 module AsktiveRecord
   # The Query class encapsulates a natural language question, its corresponding SQL,
   # and provides methods for sanitization, execution, and generating answers using LLMs.
@@ -12,25 +15,27 @@ module AsktiveRecord
       @model_class = model_class
       @natural_question = natural_question
       @sanitized_sql = raw_sql # Initially, sanitized SQL is the same as raw SQL
+
+      AsktiveRecord::Log.info("Received question: \"#{natural_question}\"")
+      AsktiveRecord::Log.info("Generated SQL: #{raw_sql}")
     end
 
-    # Placeholder for sanitization logic
-    # In a real scenario, this would involve more sophisticated checks,
-    # potentially allowing only SELECT statements or using a whitelist of allowed SQL patterns.
+    # Sanitizes the SQL using the SqlSanitizer.
+    # Raises AsktiveRecord::SanitizationError if the query is unsafe.
+    #
+    # @param allow_only_select [Boolean] restrict to SELECT-only (default: true)
+    # @return [self] for chaining
     def sanitize!(allow_only_select: true)
-      if allow_only_select && !@sanitized_sql.strip.downcase.start_with?("select")
-        raise SanitizationError, "Query sanitization failed: Only SELECT statements are allowed by default."
-      end
-
-      # Add more sanitization rules here as needed
+      @sanitized_sql = SqlSanitizer.sanitize!(@sanitized_sql, allow_only_select: allow_only_select)
+      AsktiveRecord::Log.info("Sanitized SQL: #{@sanitized_sql}")
       self # Return self for chaining
     end
 
     def answer
       response = execute
       llm = AsktiveRecord::LlmService.new(AsktiveRecord.configuration)
-      response = response.inspect if response.respond_to?(:inspect)
-      llm.answer(@natural_question, @sanitized_sql, response)
+      response_text = response.respond_to?(:inspect) ? response.inspect : response.to_s
+      llm.answer(@natural_question, @sanitized_sql, response_text)
     end
 
     def execute
@@ -39,8 +44,15 @@ module AsktiveRecord
               "Cannot execute raw SQL. Call sanitize! first or work with sanitized_sql."
       end
 
+      # Auto-sanitize before execution if not already done
+      validate_before_execution!
+
       result = execute_query
-      extract_count_if_present(result)
+      AsktiveRecord::Log.info("Query executed successfully.")
+      AsktiveRecord::Log.debug("Query results: #{result.inspect}")
+      result
+    rescue QueryExecutionError
+      raise
     rescue StandardError => e
       raise QueryExecutionError, "Failed to execute SQL query: #{e.message}"
     end
@@ -51,27 +63,32 @@ module AsktiveRecord
 
     private
 
+    def validate_before_execution!
+      # Always validate the SQL is safe before execution
+      SqlSanitizer.sanitize!(@sanitized_sql, allow_only_select: read_only_mode?)
+    end
+
+    def read_only_mode?
+      AsktiveRecord.configuration&.read_only != false
+    end
+
     def execute_query
       if active_record_model?
-        result = model_class.find_by_sql(@sanitized_sql)
-        return result[0].count if result[0].respond_to?(:count)
-
-        result
+        AsktiveRecord::Log.info("Executing SQL via #{model_class.name}.find_by_sql")
+        model_class.find_by_sql(@sanitized_sql)
       else
         execute_raw_sql
       end
     end
 
     def active_record_model?
-      model_class.respond_to?(:find_by_sql) && model_class.table_name.present?
+      model_class.respond_to?(:find_by_sql) && model_class.respond_to?(:table_name) && model_class.table_name.present?
     end
 
     def execute_raw_sql
       return unless defined?(ActiveRecord::Base)
 
-      if ActiveRecord::Base.connection.respond_to?(:exec_query)
-        # no-op here unless you're logging or observing
-      end
+      AsktiveRecord::Log.info("Executing SQL via ActiveRecord::Base.connection")
 
       if select_query?
         ActiveRecord::Base.connection.select_all(@sanitized_sql)
@@ -81,13 +98,7 @@ module AsktiveRecord
     end
 
     def select_query?
-      @sanitized_sql.strip.downcase.start_with?("select")
-    end
-
-    def extract_count_if_present(result)
-      return result unless result.is_a?(Array) && result[0].is_a?(Hash) && result[0].key?("count")
-
-      result[0]["count"]
+      @sanitized_sql.strip.match?(/\ASELECT\b/i)
     end
   end
 end

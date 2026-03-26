@@ -3,6 +3,7 @@
 require "spec_helper"
 require "asktive_record/query"
 require "asktive_record/error"
+require "asktive_record/sql_sanitizer"
 
 # Mock ActiveRecord::Base and its connection for testing execution
 module ActiveRecord
@@ -39,6 +40,10 @@ class MockModel
   def self.table_name
     "mock_models"
   end
+
+  def self.name
+    "MockModel"
+  end
 end
 
 # Mock a service class that does NOT respond to find_by_sql
@@ -48,12 +53,23 @@ end
 
 RSpec.describe AsktiveRecord::Query do
   let(:raw_sql) { "SELECT * FROM users WHERE id = 1" }
-  let(:non_select_sql) { "UPDATE users SET name = \"Test\" WHERE id = 1" }
+  let(:non_select_sql) { "UPDATE users SET name = 'Test' WHERE id = 1" }
   let(:model_class) { MockModel }
   let(:service_class) { MockServiceClass }
   let(:query_for_model) { described_class.new(nil, raw_sql, model_class) }
   let(:query_for_service) { described_class.new(nil, raw_sql, service_class) }
-  let(:non_select_query_for_service) { described_class.new(nil, non_select_sql, service_class) }
+
+  before do
+    # Ensure configuration is set for read_only_mode? checks
+    AsktiveRecord.configure do |c|
+      c.llm_api_key = "test_key"
+      c.read_only = true
+    end
+  end
+
+  after do
+    AsktiveRecord.configuration = nil
+  end
 
   describe "#initialize" do
     it "stores the raw SQL and model class" do
@@ -75,7 +91,6 @@ RSpec.describe AsktiveRecord::Query do
       # Stub LlmService and AsktiveRecord.configuration
       stub_const("AsktiveRecord::LlmService", Class.new)
       allow(AsktiveRecord::LlmService).to receive(:new).and_return(llm_service_double)
-      allow(AsktiveRecord).to receive(:configuration).and_return(double("Config"))
       allow(llm_service_double).to receive(:answer).and_return("LLM Answer")
       query_with_question.sanitize!
     end
@@ -135,21 +150,37 @@ RSpec.describe AsktiveRecord::Query do
     end
 
     it "raises SanitizationError if the query is not SELECT and allow_only_select is true" do
-      query = described_class.new(nil, "UPDATE users SET name = \"Test\"", model_class)
+      query = described_class.new(nil, non_select_sql, model_class)
       expect do
         query.sanitize!(allow_only_select: true)
-      end.to raise_error(AsktiveRecord::SanitizationError,
-                         /Only SELECT statements are allowed/)
+      end.to raise_error(AsktiveRecord::SanitizationError)
     end
 
-    it "allows non-SELECT queries if allow_only_select is false" do
-      query = described_class.new(nil, "UPDATE users SET name = \"Test\"", model_class)
-      expect { query.sanitize!(allow_only_select: false) }.not_to raise_error
-      expect(query.sanitized_sql).to eq("UPDATE users SET name = \"Test\"")
+    it "raises SanitizationError for dangerous keywords even with allow_only_select false" do
+      query = described_class.new(nil, non_select_sql, model_class)
+      expect do
+        query.sanitize!(allow_only_select: false)
+      end.to raise_error(AsktiveRecord::SanitizationError, /Dangerous SQL keyword/)
     end
 
     it "returns self for chaining" do
       expect(query_for_model.sanitize!).to eq(query_for_model)
+    end
+
+    it "raises SanitizationError for SQL with injection patterns" do
+      injection_sql = "SELECT * FROM users; DROP TABLE users"
+      query = described_class.new(nil, injection_sql, model_class)
+      expect do
+        query.sanitize!
+      end.to raise_error(AsktiveRecord::SanitizationError)
+    end
+
+    it "raises SanitizationError for UNION-based injection" do
+      union_sql = "SELECT * FROM users UNION SELECT * FROM admin_users"
+      query = described_class.new(nil, union_sql, model_class)
+      expect do
+        query.sanitize!
+      end.to raise_error(AsktiveRecord::SanitizationError)
     end
   end
 
@@ -181,17 +212,6 @@ RSpec.describe AsktiveRecord::Query do
         expect(results).to be_an(Array)
         expect(results.first).to be_a(Hash)
         expect(results.first["name"]).to eq("Test Result")
-      end
-
-      context "with non-SELECT query (if sanitization allows)" do
-        before do
-          non_select_query_for_service.sanitize!(allow_only_select: false)
-        end
-
-        it "uses ActiveRecord::Base.connection.execute" do
-          expect(ActiveRecord::Base.connection).to receive(:execute).with(non_select_query_for_service.sanitized_sql).and_call_original
-          non_select_query_for_service.execute
-        end
       end
     end
 

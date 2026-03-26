@@ -9,6 +9,7 @@ RSpec.describe "Template content" do
     content = File.read(path)
 
     expect(content).to include("AsktiveRecord.configure do |config|")
-    expect(content).to include('config.llm_api_key = "YOUR_OPENAI_API_KEY_HERE"')
+    expect(content).to include('config.llm_api_key = ENV["OPENAI_API_KEY"]')
+    expect(content).not_to include("YOUR_OPENAI_API_KEY_HERE")
   end
 end

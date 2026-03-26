@@ -7,8 +7,7 @@ require "asktive_record/query"
 require "asktive_record/configuration"
 require "asktive_record/llm_service"
 require "asktive_record/error"
-require "fileutils" # Added FileUtils
-require "debug"
+require "fileutils"
 
 # Mock a Rails-like model for testing purposes
 class MockUserRecord
@@ -45,7 +44,7 @@ RSpec.describe AsktiveRecord::Model::ClassMethods do
     end
     # Create a dummy schema file for tests
     FileUtils.mkdir_p("spec/fixtures")
-    File.write(AsktiveRecord.configuration.db_schema_path, schema_content) # Use AsktiveRecord.configuration here
+    File.write(AsktiveRecord.configuration.db_schema_path, schema_content)
 
     allow(AsktiveRecord::LlmService).to receive(:new).with(AsktiveRecord.configuration).and_return(llm_service_double)
     # Allow both generate_sql and generate_sql_for_service to be called
@@ -94,7 +93,6 @@ RSpec.describe AsktiveRecord::Model::ClassMethods do
     end
 
     it "uses LlmService to generate SQL" do
-      # Use allow instead of expect to be more flexible with the implementation
       allow(llm_service_double).to receive(:generate_sql)
         .with(natural_query, schema_content, mock_model.table_name)
         .and_return(generated_sql)
@@ -115,14 +113,12 @@ RSpec.describe AsktiveRecord::Model::ClassMethods do
     context "when schema file is not found" do
       before do
         FileUtils.rm_f(AsktiveRecord.configuration.db_schema_path) # Remove the schema file
-        # Ensure Rails is not defined for this specific test path to avoid system call attempt
-        hide_const("Rails") if defined?(Rails)
       end
-      it "raises ConfigurationError if not in Rails and schema missing" do
+      it "raises ConfigurationError when schema is missing" do
         expect do
           mock_model.ask(natural_query)
         end.to raise_error(AsktiveRecord::ConfigurationError,
-                           %r{Database schema file not found at spec/fixtures/schema.rb. AsktiveRecord needs schema context})
+                           /Database schema file not found/)
       end
     end
 
@@ -134,59 +130,39 @@ RSpec.describe AsktiveRecord::Model::ClassMethods do
         expect do
           mock_model.ask(natural_query)
         end.to raise_error(AsktiveRecord::ConfigurationError,
-                           "Schema content is empty. Cannot proceed without database schema context.")
+                           /Schema content is empty/)
       end
     end
 
-    context "when in Rails environment and schema file is missing initially" do
-      let(:rails_schema_path) { "db/schema.rb" }
+    context "when schema.rb is missing but structure.sql exists" do
       before do
-        # Simulate being in a Rails environment
-        stub_const("Rails", Class.new) unless defined?(Rails)
-        allow(mock_model).to receive(:system).and_return(true) # Stub system calls like `bin/rails db:schema:dump` to succeed
-
-        AsktiveRecord.configuration.db_schema_path = rails_schema_path
-        FileUtils.mkdir_p("db") # Ensure dir exists
-        FileUtils.rm_f(rails_schema_path)
-        FileUtils.rm_f("db/structure.sql")
+        FileUtils.rm_f(AsktiveRecord.configuration.db_schema_path)
+        FileUtils.mkdir_p("db")
+        File.write("db/structure.sql", schema_content)
       end
 
       after do
         FileUtils.rm_rf("db")
       end
 
-      it "attempts to dump schema and reads it if successful" do
-        expect(mock_model).to receive(:system).with("bin/rails db:schema:dump").ordered.and_return(true)
-        # Simulate schema dump creating the file
-        allow(File).to receive(:exist?).with(rails_schema_path).and_return(false, true)
-        allow(File).to receive(:read).with(rails_schema_path).and_return(schema_content)
+      it "falls back to structure.sql" do
+        query_object = mock_model.ask(natural_query)
+        expect(query_object).to be_a(AsktiveRecord::Query)
+        expect(query_object.raw_sql).to eq(generated_sql)
+      end
+    end
 
-        # expect(llm_service_double).to receive(:generate_sql).with(natural_query, schema_content,
-        #                                                           mock_model.table_name).and_return(generated_sql)
-        mock_model.ask(natural_query)
+    context "when both schema.rb and structure.sql are missing" do
+      before do
+        FileUtils.rm_f(AsktiveRecord.configuration.db_schema_path)
+        FileUtils.rm_f("db/structure.sql")
       end
 
-      it "attempts to dump schema and reads structure.sql if schema.rb fails but structure.sql exists" do
-        alt_schema_path = "db/structure.sql"
-        expect(mock_model).to receive(:system).with("bin/rails db:schema:dump").ordered.and_return(true)
-        allow(File).to receive(:exist?).with(rails_schema_path).and_return(false, false)
-        allow(File).to receive(:exist?).with(alt_schema_path).and_return(true)
-        allow(File).to receive(:read).with(alt_schema_path).and_return(schema_content)
-
-        # expect(llm_service_double).to receive(:generate_sql).with(natural_query, schema_content,
-        #                                                           mock_model.table_name).and_return(generated_sql)
-        mock_model.ask(natural_query)
-      end
-
-      it "raises ConfigurationError if schema dump fails and no schema file is found" do
-        expect(mock_model).to receive(:system).with("bin/rails db:schema:dump").ordered.and_return(true)
-        allow(File).to receive(:exist?).with(rails_schema_path).and_return(false, false)
-        allow(File).to receive(:exist?).with("db/structure.sql").and_return(false)
-
+      it "raises ConfigurationError" do
         expect do
           mock_model.ask(natural_query)
         end.to raise_error(AsktiveRecord::ConfigurationError,
-                           %r{Database schema file not found at db/schema.rb or db/structure.sql even after attempting to dump})
+                           /Database schema file not found/)
       end
     end
   end
@@ -251,6 +227,9 @@ RSpec.describe AsktiveRecord::Model do
       allow(llm_service_double).to receive(:generate_sql)
         .with(natural_query, schema_content, mock_model.table_name)
         .and_return(generated_sql)
+      allow(llm_service_double).to receive(:generate_sql_for_service)
+        .with(any_args)
+        .and_return(generated_sql)
       mock_model.asktive_record_setup
     end
 
@@ -259,15 +238,13 @@ RSpec.describe AsktiveRecord::Model do
       AsktiveRecord.configuration = nil
     end
 
-    it "calls LlmService#generate_sql with correct arguments and returns a Query object" do
-      # expect(llm_service_double).to receive(:generate_sql)
-      #   .with(natural_query, schema_content, mock_model.table_name)
-      #   .and_return(generated_sql)
-      # result = mock_model.ask(natural_query)
-      # expect(result).to be_a(AsktiveRecord::Query)
-      # expect(result.raw_sql).to eq(generated_sql)
-      # expect(result.model_class).to eq(mock_model)
-      # expect(result.natural_language_query).to eq(natural_query)
+    it "calls LlmService to generate SQL and returns a Query object" do
+      expect(llm_service_double).to receive(:generate_sql_for_service)
+        .with(natural_query, schema_content, "any")
+        .and_return(generated_sql)
+      result = mock_model.ask(natural_query)
+      expect(result).to be_a(AsktiveRecord::Query)
+      expect(result.raw_sql).to eq(generated_sql)
     end
 
     it "raises ConfigurationError if schema file cannot be read" do
