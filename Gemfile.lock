@@ -2,9 +2,8 @@ PATH
   remote: .
   specs:
     asktive_record (0.1.7)
-      railties (>= 6.0)
+      railties (>= 7.0)
       ruby-openai (~> 8.1)
-      zeitwerk (>= 2.0)
 
 GEM
   remote: https://rubygems.org/
@@ -169,6 +168,9 @@ GEM
     rubocop-ast (1.44.1)
       parser (>= 3.3.7.2)
       prism (~> 1.4)
+    rubocop-rspec (3.7.0)
+      lint_roller (~> 1.1)
+      rubocop (~> 1.72, >= 1.72.1)
     ruby-openai (8.1.0)
       event_stream_parser (>= 0.3.0, < 2.0.0)
       faraday (>= 1)
@@ -202,12 +204,13 @@ PLATFORMS
 
 DEPENDENCIES
   asktive_record!
-  bundler (>= 2.0)
+  bundler (>= 2.4)
   debug
   generator_spec
   rake (~> 13.0)
   rspec (~> 3.0)
-  rubocop (~> 1.21)
+  rubocop (~> 1.75)
+  rubocop-rspec
   simplecov
 
 BUNDLED WITH
