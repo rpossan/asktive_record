@@ -1,4 +1,180 @@
 module AsktiveRecord
   VERSION: String
-  # See the writing guide of rbs: https://github.com/ruby/rbs#guides
+
+  def self.configure: () { (Configuration) -> void } -> void
+  def self.configuration: () -> Configuration?
+  def self.configuration=: (Configuration?) -> void
+  def self.logger: () -> untyped
+  def self.logger=: (untyped) -> void
+  def self.ask: (String, ?Hash[Symbol, untyped]) -> Query
+  def self.validate_configuration!: () -> void
+  def self.included: (Module) -> void
+
+  class Configuration
+    attr_accessor llm_provider: Symbol
+    attr_accessor llm_api_key: String?
+    attr_accessor llm_model_name: String
+    attr_accessor db_schema_path: String
+    attr_accessor skip_dump_schema: bool
+    attr_accessor logger: untyped
+    attr_accessor read_only: bool
+    attr_accessor adapter: Adapters::Base?
+    attr_accessor temperature: Float
+    attr_accessor max_tokens: Integer
+    attr_accessor cache_enabled: bool
+
+    def initialize: () -> void
+    def resolved_adapter: () -> Adapters::Base
+
+    private
+
+    def build_adapter_from_provider: () -> Adapters::Base
+  end
+
+  class LlmService
+    attr_reader configuration: Configuration
+
+    def initialize: (Configuration) -> void
+    def upload_schema: (String) -> bool
+    def answer: (String, String, untyped) -> String?
+    def generate_sql: (String, String, String) -> String
+    def generate_sql_for_service: (String, String, ?String) -> String
+
+    private
+
+    def answer_as_human: (String, String, untyped) -> String?
+    def adapter: () -> Adapters::Base
+    def llm_options: () -> Hash[Symbol, untyped]
+    def generate_and_validate_sql: (String) -> String
+    def validate_sql_response!: (String?) -> void
+    def clean_sql: (String) -> String
+  end
+
+  class Query
+    attr_reader raw_sql: String
+    attr_reader model_class: untyped
+    attr_reader natural_question: String
+
+    def initialize: (String, String, untyped) -> void
+    def sanitize!: (?allow_only_select: bool) -> self
+    def answer: () -> String?
+    def execute: () -> untyped
+    def to_s: () -> String
+
+    private
+
+    def validate_before_execution!: () -> void
+    def read_only_mode?: () -> bool
+    def execute_query: () -> untyped
+    def execute_raw_sql: () -> untyped
+  end
+
+  class Prompt
+    PROMPT_INJECTION_PATTERNS: Array[Regexp]
+
+    def self.as_human_answerer: (String, String, untyped) -> String
+    def self.as_sql_generator: (String, String) -> String
+    def self.as_sql_generator_for_model: (String, String, String) -> String
+    def self.escape_input: (String) -> String
+  end
+
+  class SqlSanitizer
+    DANGEROUS_KEYWORDS: Array[String]
+    INJECTION_PATTERNS: Array[Regexp]
+
+    def self.sanitize!: (String?, ?allow_only_select: bool) -> String
+    def self.dangerous_keyword?: (String) -> bool
+    def self.injection_pattern?: (String) -> bool
+
+    private
+
+    def self.strip_quoted_strings: (String) -> String
+  end
+
+  module Log
+    PREFIX: String
+
+    def self.logger: () -> untyped
+    def self.logger=: (untyped) -> void
+    def self.info: (String) -> void
+    def self.debug: (String) -> void
+    def self.warn: (String) -> void
+    def self.error: (String) -> void
+
+    private
+
+    def self.default_logger: () -> untyped
+  end
+
+  module SchemaLoader
+    def load_schema_content: () -> String
+    def ensure_schema_is_not_empty!: (String) -> void
+    def validate_llm_api_key!: () -> void
+  end
+
+  module Model
+    module ClassMethods
+      include SchemaLoader
+
+      def asktive_record: () -> void
+      def ask: (String) -> Query
+    end
+  end
+
+  module Service
+    module ClassMethods
+      include SchemaLoader
+
+      def ask: (String, ?Hash[Symbol, untyped]) -> Query
+
+      private
+
+      def resolve_model: (untyped) -> untyped
+    end
+  end
+
+  module Adapters
+    class Base
+      attr_reader api_key: String
+      attr_reader model_name: String?
+
+      def initialize: (api_key: String, ?model_name: String?) -> void
+      def chat: (String, ?Hash[Symbol, untyped]) -> String?
+      def default_model_name: () -> String
+      def resolved_model_name: () -> String
+    end
+
+    class OpenAI < Base
+      DEFAULT_MODEL: String
+      DEFAULT_TEMPERATURE: Float
+      DEFAULT_MAX_TOKENS: Integer
+
+      def initialize: (api_key: String, ?model_name: String?) -> void
+      def chat: (String, ?Hash[Symbol, untyped]) -> String?
+      def default_model_name: () -> String
+
+      private
+
+      def client: () -> untyped
+    end
+  end
+
+  # Error classes
+  class Error < StandardError
+  end
+
+  class ConfigurationError < Error
+  end
+
+  class QueryGenerationError < Error
+  end
+
+  class QueryExecutionError < Error
+  end
+
+  class SanitizationError < Error
+  end
+
+  class ApiError < Error
+  end
 end

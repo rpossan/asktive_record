@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    asktive_record (0.1.7)
+    asktive_record (0.2.0)
       railties (>= 7.0)
       ruby-openai (~> 8.1)
 

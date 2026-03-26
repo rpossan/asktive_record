@@ -9,12 +9,12 @@ Gem::Specification.new do |spec|
   spec.email = ["ronaldo.possan@gmail.com"]
 
   spec.summary = "A Ruby gem that lets your data answer like a human using LLM"
-  spec.description = "AsktiveRecord is a Ruby gem designed to bridge the gap between human language and database" \
-   " queries. It lets you interact with your Rails database as if you were having a conversation with a knowledgeable" \
-   " assistant. Instead of writing SQL or chaining ActiveRecord methods, you simply ask questions" \
-   " in plain English—like (or any language) 'Who are my newest users?' or 'What products sold the most last month?'" \
-   " — and get clear, human-friendly answers. AsktiveRecord translates your questions into database queries using LLM" \
-   " behind the scenes, so you can focus on what you want to know, not how to write the query."
+  spec.description = "AsktiveRecord bridges human language and database queries. " \
+                     "It lets you interact with your Rails database as if you were " \
+                     "having a conversation with a knowledgeable assistant. " \
+                     "Instead of writing SQL or chaining ActiveRecord methods, " \
+                     "you simply ask questions in plain English (or any language) " \
+                     "and get clear, human-friendly answers powered by LLMs."
   spec.homepage = "https://github.com/rpossan/asktive_record"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.1.0"

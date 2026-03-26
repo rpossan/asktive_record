@@ -17,8 +17,8 @@ module AsktiveRecord
       return if @configuration&.llm_api_key
 
       raise ConfigurationError,
-            "LLM API key is not configured. Please set it in config/initializers/asktive_record.rb" \
-            " or via environment variable."
+            "LLM API key is not configured. Please set it in config/initializers/asktive_record.rb " \
+            "or via environment variable."
     end
 
     # Placeholder for schema upload/management with the LLM if needed for more advanced scenarios.

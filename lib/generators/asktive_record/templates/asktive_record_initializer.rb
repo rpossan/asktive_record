@@ -11,7 +11,7 @@ AsktiveRecord.configure do |config|
   # Set your API key for the chosen LLM provider.
   # It is strongly recommended to use environment variables for sensitive data.
   # For OpenAI:
-  config.llm_api_key = ENV["OPENAI_API_KEY"]
+  config.llm_api_key = ENV.fetch("OPENAI_API_KEY", nil)
 
   # === LLM Model Name ===
   # Specify the model name for the LLM provider if applicable.

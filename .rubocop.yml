@@ -1,12 +1,30 @@
 AllCops:
-  TargetRubyVersion: 3.0
+  TargetRubyVersion: 3.1
+  NewCops: enable
   Exclude:
     - 'spec/**/*'
     - 'db/schema.rb'
     - 'vendor/**/*'
+    - 'bin/**/*'
 
 Style/StringLiterals:
   EnforcedStyle: double_quotes
 
 Style/StringLiteralsInInterpolation:
   EnforcedStyle: double_quotes
+
+Layout/LineLength:
+  Max: 120
+  AllowedPatterns: ['#']
+
+Metrics/MethodLength:
+  Max: 20
+
+Metrics/ClassLength:
+  Max: 150
+
+Metrics/AbcSize:
+  Max: 25
+
+Gemspec/DevelopmentDependencies:
+  Enabled: false

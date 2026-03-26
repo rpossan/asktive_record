@@ -10,7 +10,7 @@ RSpec.describe "Template content" do
 
   it "contains correct initialization code" do
     expect(content).to include("AsktiveRecord.configure do |config|")
-    expect(content).to include('config.llm_api_key = ENV["OPENAI_API_KEY"]')
+    expect(content).to include('config.llm_api_key = ENV.fetch("OPENAI_API_KEY", nil)')
     expect(content).not_to include("YOUR_OPENAI_API_KEY_HERE")
   end
 
