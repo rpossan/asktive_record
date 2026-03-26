@@ -3,6 +3,7 @@
 require "./spec/spec_helper"
 require "asktive_record/llm_service"
 require "asktive_record/configuration"
+require "asktive_record/adapters/base"
 require "asktive_record/error"
 
 RSpec.describe AsktiveRecord::LlmService do
@@ -13,11 +14,11 @@ RSpec.describe AsktiveRecord::LlmService do
     config.llm_model_name = "gpt-4o-mini-test"
     config
   end
+  let(:adapter_double) { instance_double(AsktiveRecord::Adapters::Base) }
   let(:service) { AsktiveRecord::LlmService.new(configuration) }
-  let(:openai_client_double) { instance_double(OpenAI::Client) }
 
   before do
-    allow(OpenAI::Client).to receive(:new).with(access_token: api_key).and_return(openai_client_double)
+    allow(configuration).to receive(:resolved_adapter).and_return(adapter_double)
   end
 
   describe "#initialize" do
@@ -46,68 +47,54 @@ RSpec.describe AsktiveRecord::LlmService do
     let(:expected_sql) do
       "SELECT products.*, categories.name as category_name FROM products JOIN categories ON products.category_id = categories.id"
     end
-    let(:chat_response) do
-      {
-        "choices" => [
-          {
-            "message" => {
-              "role" => "assistant",
-              "content" => "#{expected_sql};"
-            }
-          }
-        ]
-      }
-    end
 
     it "generates SQL successfully for a valid service query" do
-      allow(openai_client_double).to receive(:chat).and_return(chat_response)
+      allow(adapter_double).to receive(:chat).and_return("#{expected_sql};")
       sql = service.generate_sql_for_service(natural_language_query, schema_string, target_table)
       expect(sql).to eq(expected_sql)
     end
 
-    it "constructs the correct prompt for service queries" do
+    it "constructs the correct prompt and passes it to the adapter" do
       expected_prompt = AsktiveRecord::Prompt.as_sql_generator(natural_language_query, schema_string)
 
-      expect(openai_client_double).to receive(:chat).with(
-        parameters: {
-          model: "gpt-4o-mini-test",
-          messages: [{ role: "user", content: expected_prompt }],
-          temperature: 0.2,
-          max_tokens: 250
-        }
-      ).and_return(chat_response)
+      expect(adapter_double).to receive(:chat).with(
+        expected_prompt,
+        { temperature: 0.2, max_tokens: 250 }
+      ).and_return("#{expected_sql};")
+
       service.generate_sql_for_service(natural_language_query, schema_string, target_table)
     end
 
     it "raises QueryGenerationError if LLM returns a non-SELECT query" do
-      non_select_response = {
-        "choices" => [{ "message" => { "content" => "DROP TABLE products;" } }]
-      }
-      allow(openai_client_double).to receive(:chat).and_return(non_select_response)
+      allow(adapter_double).to receive(:chat).and_return("DROP TABLE products;")
       expect do
         service.generate_sql_for_service(natural_language_query, schema_string, target_table)
       end.to raise_error(AsktiveRecord::QueryGenerationError, /LLM generated a non-SELECT query/)
     end
 
     it "raises QueryGenerationError if LLM returns no content" do
-      empty_response = {
-        "choices" => [{ "message" => { "content" => "" } }]
-      }
-      allow(openai_client_double).to receive(:chat).and_return(empty_response)
+      allow(adapter_double).to receive(:chat).and_return("")
       expect do
         service.generate_sql_for_service(natural_language_query, schema_string, target_table)
       end.to raise_error(AsktiveRecord::QueryGenerationError, /LLM did not return a SQL query/)
     end
 
-    it "raises ApiError on OpenAI API errors" do
-      allow(openai_client_double).to receive(:chat).and_raise(OpenAI::Error.new("API connection error"))
+    it "raises QueryGenerationError if LLM returns nil" do
+      allow(adapter_double).to receive(:chat).and_return(nil)
+      expect do
+        service.generate_sql_for_service(natural_language_query, schema_string, target_table)
+      end.to raise_error(AsktiveRecord::QueryGenerationError, /LLM did not return a SQL query/)
+    end
+
+    it "raises ApiError on LLM adapter API errors" do
+      allow(adapter_double).to receive(:chat).and_raise(AsktiveRecord::ApiError.new("OpenAI API error: API connection error"))
       expect do
         service.generate_sql_for_service(natural_language_query, schema_string, target_table)
       end.to raise_error(AsktiveRecord::ApiError, "OpenAI API error: API connection error")
     end
 
     it "raises QueryGenerationError on other unexpected errors during generation" do
-      allow(openai_client_double).to receive(:chat).and_raise(StandardError.new("Unexpected issue"))
+      allow(adapter_double).to receive(:chat).and_raise(StandardError.new("Unexpected issue"))
       expect do
         service.generate_sql_for_service(natural_language_query, schema_string, target_table)
       end.to raise_error(AsktiveRecord::QueryGenerationError, "Failed to generate SQL query: Unexpected issue")
@@ -119,21 +106,9 @@ RSpec.describe AsktiveRecord::LlmService do
     let(:schema_string) { "CREATE TABLE users (id INTEGER, name VARCHAR(255));" }
     let(:table_name) { "users" }
     let(:expected_sql) { "SELECT * FROM users" }
-    let(:chat_response) do
-      {
-        "choices" => [
-          {
-            "message" => {
-              "role" => "assistant",
-              "content" => "#{expected_sql};"
-            }
-          }
-        ]
-      }
-    end
 
     it "generates SQL successfully for a valid query" do
-      allow(openai_client_double).to receive(:chat).and_return(chat_response)
+      allow(adapter_double).to receive(:chat).and_return("#{expected_sql};")
       sql = service.generate_sql(natural_language_query, schema_string, table_name)
       expect(sql).to eq(expected_sql) # Semicolon should be cleaned
     end
@@ -142,46 +117,37 @@ RSpec.describe AsktiveRecord::LlmService do
       expected_prompt = AsktiveRecord::Prompt.as_sql_generator_for_model(natural_language_query, schema_string,
                                                                         table_name)
 
-      expect(openai_client_double).to receive(:chat).with(
-        parameters: {
-          model: "gpt-4o-mini-test",
-          messages: [{ role: "user", content: expected_prompt }],
-          temperature: 0.2,
-          max_tokens: 250
-        }
-      ).and_return(chat_response)
+      expect(adapter_double).to receive(:chat).with(
+        expected_prompt,
+        { temperature: 0.2, max_tokens: 250 }
+      ).and_return("#{expected_sql};")
+
       service.generate_sql(natural_language_query, schema_string, table_name)
     end
 
     it "raises QueryGenerationError if LLM returns a non-SELECT query" do
-      non_select_response = {
-        "choices" => [{ "message" => { "content" => "DROP TABLE users;" } }]
-      }
-      allow(openai_client_double).to receive(:chat).and_return(non_select_response)
+      allow(adapter_double).to receive(:chat).and_return("DROP TABLE users;")
       expect do
         service.generate_sql(natural_language_query, schema_string, table_name)
       end.to raise_error(AsktiveRecord::QueryGenerationError, /LLM generated a non-SELECT query/)
     end
 
     it "raises QueryGenerationError if LLM returns no content" do
-      empty_response = {
-        "choices" => [{ "message" => { "content" => "" } }]
-      }
-      allow(openai_client_double).to receive(:chat).and_return(empty_response)
+      allow(adapter_double).to receive(:chat).and_return("")
       expect do
         service.generate_sql(natural_language_query, schema_string, table_name)
       end.to raise_error(AsktiveRecord::QueryGenerationError, /LLM did not return a SQL query/)
     end
 
-    it "raises ApiError on OpenAI API errors" do
-      allow(openai_client_double).to receive(:chat).and_raise(OpenAI::Error.new("API connection error"))
+    it "raises ApiError on LLM adapter API errors" do
+      allow(adapter_double).to receive(:chat).and_raise(AsktiveRecord::ApiError.new("OpenAI API error: API connection error"))
       expect do
         service.generate_sql(natural_language_query, schema_string, table_name)
       end.to raise_error(AsktiveRecord::ApiError, "OpenAI API error: API connection error")
     end
 
     it "raises QueryGenerationError on other unexpected errors during generation" do
-      allow(openai_client_double).to receive(:chat).and_raise(StandardError.new("Unexpected issue"))
+      allow(adapter_double).to receive(:chat).and_raise(StandardError.new("Unexpected issue"))
       expect do
         service.generate_sql(natural_language_query, schema_string, table_name)
       end.to raise_error(AsktiveRecord::QueryGenerationError, "Failed to generate SQL query: Unexpected issue")
@@ -224,59 +190,36 @@ RSpec.describe AsktiveRecord::LlmService do
     let(:llm_response) { "Existem 5 usuários no banco de dados." }
 
     before do
-      allow(openai_client_double).to receive(:chat).and_return(
-        {
-          "choices" => [
-            {
-              "message" => {
-                "role" => "assistant",
-                "content" => llm_response
-              }
-            }
-          ]
-        }
-      )
+      allow(adapter_double).to receive(:chat).and_return(llm_response)
     end
 
-    it "calls OpenAI client with the correct prompt and returns the LLM's answer" do
-      expect(openai_client_double).to receive(:chat).with(
-        parameters: hash_including(
-          model: "gpt-4o-mini-test",
-          messages: [hash_including(role: "user", content: a_string_including("You are a helpful data assistant"))],
-          temperature: 0.2,
-          max_tokens: 250
-        )
-      ).and_return(
-        {
-          "choices" => [
-            {
-              "message" => {
-                "role" => "assistant",
-                "content" => llm_response
-              }
-            }
-          ]
-        }
-      )
+    it "calls the adapter with the correct prompt and returns the LLM's answer" do
+      expected_prompt = AsktiveRecord::Prompt.as_human_answerer(question, query, db_response)
+
+      expect(adapter_double).to receive(:chat).with(
+        expected_prompt,
+        { temperature: 0.2, max_tokens: 250 }
+      ).and_return(llm_response)
+
       expect(service.send(:answer_as_human, question, query, db_response)).to eq(llm_response)
     end
 
-    it "raises ApiError on OpenAI API errors" do
-      allow(openai_client_double).to receive(:chat).and_raise(OpenAI::Error.new("API error"))
+    it "raises ApiError on LLM adapter API errors" do
+      allow(adapter_double).to receive(:chat).and_raise(AsktiveRecord::ApiError.new("OpenAI API error: API error"))
       expect do
         service.send(:answer_as_human, question, query, db_response)
       end.to raise_error(AsktiveRecord::ApiError, "OpenAI API error: API error")
     end
 
     it "raises QueryGenerationError on other unexpected errors" do
-      allow(openai_client_double).to receive(:chat).and_raise(StandardError.new("Unexpected error"))
+      allow(adapter_double).to receive(:chat).and_raise(StandardError.new("Unexpected error"))
       expect do
         service.send(:answer_as_human, question, query, db_response)
       end.to raise_error(AsktiveRecord::QueryGenerationError, "Failed to generate SQL query: Unexpected error")
     end
 
     it "returns nil if the LLM response is missing" do
-      allow(openai_client_double).to receive(:chat).and_return({ "choices" => [{ "message" => { "content" => nil } }] })
+      allow(adapter_double).to receive(:chat).and_return(nil)
       expect(service.send(:answer_as_human, question, query, db_response)).to be_nil
     end
   end

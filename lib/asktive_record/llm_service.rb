@@ -1,18 +1,18 @@
 # frozen_string_literal: true
 
-require "openai"
 require "asktive_record/prompt"
 require "asktive_record/log"
 
 module AsktiveRecord
   # Service class for interacting with the LLM API to generate SQL queries
   # and answer questions based on the generated queries and database responses.
+  # Uses the adapter pattern to support multiple LLM providers.
   class LlmService
     attr_reader :configuration
 
     def initialize(configuration)
       @configuration = configuration
-      @client = nil
+      @adapter = nil
 
       return if @configuration&.llm_api_key
 
@@ -57,46 +57,32 @@ module AsktiveRecord
 
     def answer_as_human(question, query, response)
       prompt = Prompt.as_human_answerer(question, query, response)
-      llm_response = call_llm(prompt)
-      extract_answer(llm_response)
-    rescue OpenAI::Error => e
-      raise ApiError, "OpenAI API error: #{e.message}"
+      adapter.chat(prompt, llm_options)
+    rescue ApiError
+      raise
     rescue StandardError => e
       raise QueryGenerationError, "Failed to generate SQL query: #{e.message}"
     end
 
-    def client
-      @client ||= OpenAI::Client.new(access_token: configuration.llm_api_key)
+    def adapter
+      @adapter ||= configuration.resolved_adapter
     end
 
-    def call_llm(prompt)
-      client.chat(
-        parameters: {
-          model: configuration.llm_model_name || "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.2,
-          max_tokens: 250
-        }
-      )
-    end
-
-    def extract_answer(response)
-      response.dig("choices", 0, "message", "content")&.strip
+    def llm_options
+      {
+        temperature: configuration.temperature || 0.2,
+        max_tokens: configuration.max_tokens || 250
+      }
     end
 
     def generate_and_validate_sql(prompt)
-      raw_sql = fetch_sql_from_llm(prompt)
+      raw_sql = adapter.chat(prompt, llm_options)
       validate_sql_response!(raw_sql)
       clean_sql(raw_sql)
-    rescue OpenAI::Error => e
-      raise ApiError, "OpenAI API error: #{e.message}"
+    rescue ApiError
+      raise
     rescue StandardError => e
       raise QueryGenerationError, "Failed to generate SQL query: #{e.message}"
-    end
-
-    def fetch_sql_from_llm(prompt)
-      response = call_llm(prompt)
-      response.dig("choices", 0, "message", "content")&.strip
     end
 
     def validate_sql_response!(raw_sql)

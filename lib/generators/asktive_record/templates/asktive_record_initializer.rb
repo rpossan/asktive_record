@@ -36,6 +36,21 @@ AsktiveRecord.configure do |config|
   # Set to false if you want to allow other query types (not recommended).
   # config.read_only = true
 
+  # === LLM Temperature ===
+  # Controls randomness in LLM responses. Lower = more deterministic.
+  # Default is 0.2 (low randomness for reliable SQL generation).
+  # config.temperature = 0.2
+
+  # === LLM Max Tokens ===
+  # Maximum number of tokens in the LLM response.
+  # Default is 250.
+  # config.max_tokens = 250
+
+  # === Custom Adapter ===
+  # Provide a custom LLM adapter instead of using the built-in provider.
+  # The adapter must inherit from AsktiveRecord::Adapters::Base and implement #chat.
+  # config.adapter = MyCustomAdapter.new(api_key: ENV["MY_LLM_KEY"])
+
   # === Custom Logger ===
   # Set a custom logger. Defaults to Rails.logger when available.
   # config.logger = Logger.new($stdout)
