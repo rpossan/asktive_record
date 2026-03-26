@@ -5,6 +5,7 @@ require "asktive_record/error"
 require "asktive_record/log"
 require "asktive_record/configuration"
 require "asktive_record/sql_sanitizer"
+require "asktive_record/schema_loader"
 require "asktive_record/model"
 require "asktive_record/service"
 require "asktive_record/query"
@@ -42,7 +43,6 @@ module AsktiveRecord
 
   # Class method to allow direct querying from AsktiveRecord module
   def self.ask(natural_language_query, options = {})
-    # Delegate to the Service module's ask method directly
     validate_configuration!
     schema_content = load_schema_for_module
     llm_service = AsktiveRecord::LlmService.new(configuration)

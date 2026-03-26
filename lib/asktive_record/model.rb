@@ -1,12 +1,15 @@
 # frozen_string_literal: true
 
 require "asktive_record/llm_service"
+require "asktive_record/schema_loader"
 require "asktive_record/log"
 
 module AsktiveRecord
   module Model
     # Provides class-level methods for AsktiveRecord models, enabling natural language queries and configuration checks.
     module ClassMethods
+      include AsktiveRecord::SchemaLoader
+
       def asktive_record
         return if AsktiveRecord.configuration
 
@@ -16,10 +19,10 @@ module AsktiveRecord
       end
 
       def ask(natural_language_query)
-        ensure_api_key_configured!
+        validate_llm_api_key!
 
-        schema_content = load_schema
-        raise ConfigurationError, "Schema content is empty." if schema_content.to_s.strip.empty?
+        schema_content = load_schema_content
+        ensure_schema_is_not_empty!(schema_content)
 
         llm_service = AsktiveRecord::LlmService.new(AsktiveRecord.configuration)
         current_table_name = respond_to?(:table_name) ? table_name : name.downcase.pluralize
@@ -27,39 +30,6 @@ module AsktiveRecord
         raw_sql = llm_service.generate_sql(natural_language_query, schema_content, current_table_name)
 
         AsktiveRecord::Query.new(natural_language_query, raw_sql, self)
-      end
-
-      private
-
-      def ensure_api_key_configured!
-        return if AsktiveRecord.configuration&.llm_api_key
-
-        raise ConfigurationError, "LLM API key is not configured for AsktiveRecord."
-      end
-
-      def load_schema
-        schema_path = AsktiveRecord.configuration.db_schema_path
-        return File.read(schema_path) if File.exist?(schema_path)
-
-        AsktiveRecord::Log.warn("Schema file not found at #{schema_path}. Attempting fallback.")
-        try_structure_sql || raise_schema_error(schema_path)
-      rescue SystemCallError => e
-        raise ConfigurationError, "Error reading schema file at #{schema_path}: #{e.message}"
-      end
-
-      def try_structure_sql
-        path = "db/structure.sql"
-        return unless File.exist?(path)
-
-        AsktiveRecord::Log.info("Using schema from #{path}")
-        File.read(path)
-      end
-
-      def raise_schema_error(schema_path)
-        raise ConfigurationError, <<~MSG.strip
-          Database schema file not found at #{schema_path} or db/structure.sql.
-          Please run `asktive_record:setup` or configure the correct path.
-        MSG
       end
     end
   end

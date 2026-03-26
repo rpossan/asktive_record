@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "asktive_record/llm_service"
+require "asktive_record/schema_loader"
 require "asktive_record/log"
 
 module AsktiveRecord
@@ -10,6 +11,8 @@ module AsktiveRecord
     # It allows for more complex queries that may involve multiple tables or relationships,
     # without requiring the user to specify a target table.
     module ClassMethods
+      include AsktiveRecord::SchemaLoader
+
       def ask(natural_language_query, options = {})
         validate_llm_api_key!
         schema_content = load_schema_content
@@ -22,47 +25,6 @@ module AsktiveRecord
       end
 
       private
-
-      def ensure_schema_is_not_empty!(schema_content)
-        return unless schema_content.to_s.strip.empty?
-
-        raise ConfigurationError,
-              "Schema content is empty. Cannot proceed without database schema context."
-      end
-
-      def validate_llm_api_key!
-        return if AsktiveRecord.configuration&.llm_api_key
-
-        raise ConfigurationError, "LLM API key is not configured for AsktiveRecord."
-      end
-
-      def load_schema_content
-        path = AsktiveRecord.configuration.db_schema_path
-        return File.read(path) if File.exist?(path)
-
-        attempt_schema_fallback(path)
-      rescue SystemCallError => e
-        raise ConfigurationError, "Error reading schema file at #{path}: #{e.message}"
-      end
-
-      def attempt_schema_fallback(path)
-        AsktiveRecord::Log.warn(
-          "Schema file not found at #{path}. " \
-          "Run 'bundle exec rails generate asktive_record:setup' for robust schema handling."
-        )
-
-        alt_path = "db/structure.sql"
-        return use_alternative_schema(alt_path) if File.exist?(alt_path)
-
-        raise ConfigurationError,
-              "Database schema file not found at #{path}. AsktiveRecord needs schema context. " \
-              "Ensure the schema file is present or configure the correct path."
-      end
-
-      def use_alternative_schema(path)
-        AsktiveRecord::Log.info("Using schema from #{path}")
-        File.read(path)
-      end
 
       def resolve_model(provided_model)
         return provided_model if provided_model
